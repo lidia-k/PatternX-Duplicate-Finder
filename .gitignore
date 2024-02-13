@@ -1,0 +1,5 @@
+*.faiss
+*.pkl
+*.env
+*.zip
+/ragenv
