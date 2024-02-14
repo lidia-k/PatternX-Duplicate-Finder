@@ -1,3 +1,5 @@
+from itertools import combinations
+
 import numpy as np
 import pandas as pd
 import pickle
@@ -21,8 +23,7 @@ class DuplicateFinder:
         self.index = faiss.IndexFlatL2(self.dimension)
         self.table_name = table_name
         self.row_id_mapping = []
-        self.size_prompt = """The size is the most important feature to consider. 
-        For example, the size 42 is very different from 48."""
+
         self.subcategory_prompt = """The product subcategory is the most important feature to consider.
         For example, bottom brackets are different from brakes.
         After the product subcategory, the size is important. For example, the size 42 is very different from 48. 
@@ -53,7 +54,53 @@ class DuplicateFinder:
         conn.close()
         return rows
     
+    def _add_duplicate_rows(self, row):
+        """
+        Add duplicates row one of which has the same size and the different subcategory, 
+        and the other of which has the different size and the same subcategory. 
+        """
+        text = ''
+        for key, value in row.items():
+            sentence = f'{key} is {value}. '
+            if key == 'name':
+                sentence = sentence.replace(value, value.lower())
+            if key == 'size':
+               diff_size = str(70) 
+               sentence = sentence.replace(value, diff_size)
+            if key == 'productsubcategoryname':
+                text += sentence * 3
+        
+            text += sentence
+        print(text)
+        
+        embedding = self.model.encode(text)
+        np_embedding = embedding.astype('float32').reshape(1, -1)
+
+        self.index.add(np_embedding)
+        self.row_id_mapping.append(10001)
+        
+        text = ''
+        for key, value in row.items():
+            sentence = f'{key} is {value}. '
+            if key == 'name':
+                sentnece = sentence.replace(value, value.lower())
+            if key == 'productsubcategoryname':
+                sentence = sentence.replace('Road', 'Mountain')
+                text += sentence * 3
+
+            text += sentence
+        print(text)
+
+        embedding = self.model.encode(text)
+        np_embedding = embedding.astype('float32').reshape(1, -1)
+
+        self.index.add(np_embedding)
+        self.row_id_mapping.append(10002)
+
     def _add_duplicate_row(self, row):
+        """
+        Add a duplicate row with the tweaked name
+        """
         duplicate = []
         for key, value in row.items():
             value = str(value)
@@ -67,39 +114,43 @@ class DuplicateFinder:
         np_embedding = embedding.astype('float32').reshape(1, -1)
 
         self.index.add(np_embedding)
-        self.row_id_mapping.append('test')
+        self.row_id_mapping.append(10001)
 
         print('The duplicate row is successfully added')
-
-    def generate_embeddings(self):
+    
+    def _generate_embeddings(self, prompt=None, English=False):
         """
-        Generates embeddings for each row and index it to faiss for similarity search. 
+        Generate embeddings for each row and index it to faiss for similarity search. 
         An index file and a pickle file of the row id mapping are created as a result. 
         """
         import faiss 
         
         rows = self._fetch_rows()
-    
         for row in rows:
-            text = []
-            for key, value in row.items():
-                value = str(value)
-                """
-                if key == 'size':
-                    text.extend([f'{key}: {value})']*2)
-                else:
-                """
-                text.append(f'{key}: {value}') 
-
-            combined_text = ' '.join(text)
-            embedding = self.model.encode(combined_text)
+            if English:
+                text = prompt if prompt else ''
+                for key, value in row.items():
+                    value = f'{key} is {value}. '
+                    if key == 'productsubcategoryname':
+                        text += value * 3
+                    text += value
+            else:
+                text = [prompt] if prompt else []
+                for key, value in row.items():
+                    el = f'{key}: {str(value)}'
+                    if key == 'size':
+                        text.extend([el]*3)
+                    text.append(el)
+                text = ', '.join(text)
+                
+            embedding = self.model.encode(text)
             np_embedding = embedding.astype('float32').reshape(1, -1)
             
             self.index.add(np_embedding)
             self.row_id_mapping.append(row['productid'])
             
-            if row['productid'] == 994: # add the duplicate row
-                self._add_duplicate_row(row)
+            if row['productid'] == 765: # add the duplicate row
+                self._add_duplicate_rows(row)
 
         faiss.write_index(self.index, self.index_file)
 
@@ -139,6 +190,7 @@ class DuplicateFinder:
         return df
 
     def extract_lowest_distances(self, n=5):
+        self._generate_embeddings()
         df = self._create_similarity_matrix()
         
         # Use the mask to exclude diagonal values
@@ -155,7 +207,7 @@ class DuplicateFinder:
 
         sorted_indices = np.argsort(filtered_df)
         top_n_indices = sorted_indices[:n]
-        top_n_distances = flattened_df[top_n_indices]
+        top_n_distances = filtered_df[top_n_indices]
 
         top_n_row_ids = df.index[filtered_rows[top_n_indices]]
         top_n_col_ids = df.columns[filtered_cols[top_n_indices]]
@@ -163,12 +215,16 @@ class DuplicateFinder:
         top_n_pairs = [(row_id, col_id, dist) for row_id, col_id, dist in zip(top_n_row_ids, top_n_col_ids, top_n_distances)]
         for i, (row_id, col_id, dist) in enumerate(top_n_pairs, 1):
             print(f"Top {i}: {row_id} to {col_id} with distance {dist}")
+        
+        #print(f"994 to 10001 with distance {df.at[994, 10001]}")
 
-    def extract_distance_between_pairs(self, pair_ids):
+    def extract_distance_between_pairs(self, ids, prompt=None, English=False):
+        self._generate_embeddings(prompt=prompt, English=English)
         df = self._create_similarity_matrix()
 
-        print(f'Prompt: {self.size_prompt}')
+        print(f'Prompt: {prompt}, English: {English}')
 
+        pair_ids = list(combinations(ids, 2))
         distance = df.at[pair_ids[0][0], pair_ids[0][1]]
         print(f"Distance between {pair_ids[0][0]} and {pair_ids[0][1]}: {distance}")
 
@@ -181,6 +237,16 @@ class DuplicateFinder:
 
 TABLE_NAME = 'production.product_flattened'
 duplicate_finder = DuplicateFinder('sentence-transformers/all-MiniLM-L6-v2', TABLE_NAME)
-duplicate_finder.generate_embeddings()
-duplicate_finder.extract_lowest_distances()
-#duplicate_finder.extract_distance_between_pairs([[965, 964], [964, 961], [965, 961]])
+#duplicate_finder.extract_lowest_distances()
+
+
+
+size_prompt = """The size is the most important feature to consider.
+For example, the size 42 is very different from 48."""
+#example1 = [964, 965, 961]
+#example2 = [765, 766, 768]
+
+duplicate_finder.extract_distance_between_pairs([765, 10001, 10002], English=True)
+
+
+
