@@ -54,21 +54,22 @@ class DuplicateFinder:
         conn.close()
         return rows
     
-    def _add_duplicate_rows(self, row):
+    def _add_duplicate_rows(self, row, prompt):
         """
         Add duplicates row one of which has the same size and the different subcategory, 
         and the other of which has the different size and the same subcategory. 
         """
-        text = ''
+        text = prompt if prompt else ''
         for key, value in row.items():
+            key = key.replace("_", " ")
             sentence = f'{key} is {value}. '
             if key == 'name':
                 sentence = sentence.replace(value, value.lower())
             if key == 'size':
                diff_size = str(70) 
                sentence = sentence.replace(value, diff_size)
-            if key == 'productsubcategoryname':
-                text += sentence * 3
+            #if key == 'productsubcategoryname':
+              #  text += sentence * 3
         
             text += sentence
         print(text)
@@ -79,14 +80,15 @@ class DuplicateFinder:
         self.index.add(np_embedding)
         self.row_id_mapping.append(10001)
         
-        text = ''
+        text = prompt if prompt else ''
         for key, value in row.items():
             sentence = f'{key} is {value}. '
+            key = key.replace("_", " ")
             if key == 'name':
                 sentnece = sentence.replace(value, value.lower())
             if key == 'productsubcategoryname':
                 sentence = sentence.replace('Road', 'Mountain')
-                text += sentence * 3
+                #text += sentence * 3
 
             text += sentence
         print(text)
@@ -101,16 +103,15 @@ class DuplicateFinder:
         """
         Add a duplicate row with the tweaked name
         """
-        duplicate = []
+        duplicate = ''
         for key, value in row.items():
-            value = str(value)
+            key = key.replace("_", " ")
             if key == 'name':
                 value = value.lower()
 
-            duplicate.append(f'{key}: {value}')
+            duplicate += f'{key} is {value}. '
  
-        dup_text = ' '.join(duplicate)
-        embedding = self.model.encode(dup_text)
+        embedding = self.model.encode(duplicate)
         np_embedding = embedding.astype('float32').reshape(1, -1)
 
         self.index.add(np_embedding)
@@ -130,9 +131,10 @@ class DuplicateFinder:
             if English:
                 text = prompt if prompt else ''
                 for key, value in row.items():
+                    key = key.replace("_", " ")
                     value = f'{key} is {value}. '
-                    if key == 'productsubcategoryname':
-                        text += value * 3
+                    if key == 'size':
+                        text += value
                     text += value
             else:
                 text = [prompt] if prompt else []
@@ -150,7 +152,7 @@ class DuplicateFinder:
             self.row_id_mapping.append(row['productid'])
             
             if row['productid'] == 765: # add the duplicate row
-                self._add_duplicate_rows(row)
+                self._add_duplicate_rows(row, prompt)
 
         faiss.write_index(self.index, self.index_file)
 
@@ -189,8 +191,8 @@ class DuplicateFinder:
         print('Similarity matrix is successfully created.')
         return df
 
-    def extract_lowest_distances(self, n=5):
-        self._generate_embeddings()
+    def extract_lowest_distances(self, English=False, n=5):
+        self._generate_embeddings(English=English)
         df = self._create_similarity_matrix()
         
         # Use the mask to exclude diagonal values
@@ -237,16 +239,17 @@ class DuplicateFinder:
 
 TABLE_NAME = 'production.product_flattened'
 duplicate_finder = DuplicateFinder('sentence-transformers/all-MiniLM-L6-v2', TABLE_NAME)
-#duplicate_finder.extract_lowest_distances()
+#duplicate_finder.extract_lowest_distances(English=True)
 
 
 
-size_prompt = """The size is the most important feature to consider.
-For example, the size 42 is very different from 48."""
-#example1 = [964, 965, 961]
-#example2 = [765, 766, 768]
+size_prompt = """The product subcategory is the most important feature to consider.
+The difference in size is less important than the product subcategory.
+"""
+#For example, the size 42 is very different from 48."""
+example1 = [964, 965, 961]
+example2 = [765, 766, 768]
 
-duplicate_finder.extract_distance_between_pairs([765, 10001, 10002], English=True)
-
+duplicate_finder.extract_distance_between_pairs([765, 10001, 10002], prompt=size_prompt, English=True)
 
 

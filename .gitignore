@@ -2,4 +2,6 @@
 *.pkl
 *.env
 *.zip
+*.gz
 /ragenv
+synthea*/

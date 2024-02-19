@@ -13,13 +13,13 @@ class DataProcessor:
         self.table_name = table_name
         self.new_table = self.table_name + '_flattened'
         
-        self.create_duplicate_table()
-        self.update_catalog_description()
-        self.update_boolean_columns()
-        self.update_categorical_columns()
-        self.update_column_names()
-        self.update_foreignkey_columns()
-        self.drop_columns()
+        #self.create_duplicate_table()
+        #self.update_catalog_description()
+        #self.update_boolean_columns()
+        #self.update_categorical_columns()
+        #self.update_column_names()
+        #self.update_foreignkey_columns()
+        #self.drop_columns()
         self.update_weight_unit_measure_code()
 
     def _connect_to_db(self):
@@ -51,26 +51,26 @@ class DataProcessor:
     def update_boolean_columns(self):
         try:
             conn, cur = self._connect_to_db()
-            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN MakeFlag TO ProductionType;')
-            cur.execute(f'ALTER TABLE {self.new_table} ALTER COLUMN ProductionType TYPE VARCHAR;')
+            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN MakeFlag TO Production_Type;')
+            cur.execute(f'ALTER TABLE {self.new_table} ALTER COLUMN Production_Type TYPE VARCHAR;')
             
             update_query = f"""
             UPDATE {self.new_table}
-            SET ProductionType = CASE 
-                WHEN ProductionType = 'true' THEN 'Manufactured'  
-                WHEN ProductionType = 'false' THEN 'Outsourced'  
+            SET Production_Type = CASE 
+                WHEN Production_Type = 'true' THEN 'Manufactured'  
+                WHEN Production_Type = 'false' THEN 'Outsourced'  
             END;
             """
             cur.execute(update_query)
 
-            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN FinishedGoodsFlag TO ProductStatus;')
-            cur.execute(f'ALTER TABLE {self.new_table} ALTER COLUMN ProductStatus TYPE VARCHAR;')
+            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN FinishedGoodsFlag TO Product_Status;')
+            cur.execute(f'ALTER TABLE {self.new_table} ALTER COLUMN Product_Status TYPE VARCHAR;')
             
             update_query = f"""
             UPDATE {self.new_table}
-            SET ProductStatus = CASE 
-                WHEN ProductStatus = 'true' THEN 'Ready for sale'  
-                WHEN ProductStatus = 'false' THEN 'Not ready for sale'  
+            SET Product_Status = CASE 
+                WHEN Product_Status = 'true' THEN 'Ready for sale'  
+                WHEN Product_Status = 'false' THEN 'Not ready for sale'  
             END;
             """
             cur.execute(update_query)
@@ -85,11 +85,11 @@ class DataProcessor:
     def update_column_names(self):
         try:
             conn, cur = self._connect_to_db()
-            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN SafetyStockLevel TO MiminumQuantityStockInInventory;')
-            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN ReorderPoint TO ReorderStatusIndicator;')
-            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN StandardCost TO EstimatedProductCostInUSD;')
-            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN ListPrice TO SuggestedRetailPriceInUSD;')
-            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN DaysToManufacture TO ProductionLeadTimeInDays;')
+            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN SafetyStockLevel TO Miminum_Quantity_Stock_In_Inventory;')
+            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN ReorderPoint TO Reorder_Status_Indicator;')
+            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN StandardCost TO Estimated_Product_Cost_In_USD;')
+            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN ListPrice TO Suggested_Retail_Price_In_USD;')
+            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN DaysToManufacture TO Production_Lead_Time_In_Days;')
 
             conn.commit()
             conn.close()
@@ -101,18 +101,18 @@ class DataProcessor:
     def update_categorical_columns(self):
         try: 
             conn, cur = self._connect_to_db()
-            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN ProductLine TO ProductCategory;')
+            cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN ProductLine TO Product_Category;')
             cur.execute("DROP VIEW pr.p;")
-            cur.execute(f'ALTER TABLE {self.new_table} ALTER COLUMN ProductCategory TYPE VARCHAR(20);')
+            cur.execute(f'ALTER TABLE {self.new_table} ALTER COLUMN Product_Category TYPE VARCHAR(20);')
 
             update_query = f"""
             UPDATE {self.new_table}
-            SET ProductCategory = CASE
-                WHEN ProductCategory = 'S' THEN 'Standard'
-                WHEN ProductCategory = 'T' THEN 'Touring'
-                WHEN ProductCategory = 'M' THEN 'Mountain'
-                WHEN ProductCategory = 'R' THEN 'Road'
-                ELSE ProductCategory
+            SET Product_Category = CASE
+                WHEN Product_Category = 'S' THEN 'Standard'
+                WHEN Product_Category = 'T' THEN 'Touring'
+                WHEN Product_Category = 'M' THEN 'Mountain'
+                WHEN Product_Category = 'R' THEN 'Road'
+                ELSE Product_Category
             END;
             """
             cur.execute(update_query)
@@ -153,21 +153,21 @@ class DataProcessor:
     def update_foreignkey_columns(self):
         try:  
             conn, cur = self._connect_to_db()
-            cur.execute(f'ALTER TABLE {self.new_table} ADD COLUMN ProductSubcategoryName VARCHAR(255);')
+            cur.execute(f'ALTER TABLE {self.new_table} ADD COLUMN Product_Subcategory_Name VARCHAR(255);')
             
             update_query = f"""
             UPDATE {self.new_table} p
-            SET ProductSubcategoryName = sc.Name
+            SET Product_Subcategory_Name = sc.Name
             FROM production.ProductSubcategory sc
             WHERE p.ProductSubcategoryID = sc.ProductSubcategoryID;
             """
             cur.execute(update_query)
 
-            cur.execute(f'ALTER TABLE {self.new_table} ADD COLUMN ProductModelName VARCHAR(255);')
+            cur.execute(f'ALTER TABLE {self.new_table} ADD COLUMN Product_Model_Name VARCHAR(255);')
             
             update_query = f"""
             UPDATE {self.new_table} p
-            SET ProductModelName = pm.Name
+            SET Product_Model_Name = pm.Name
             FROM production.ProductModel pm
             WHERE p.ProductModelID = pm.ProductModelID;
             """
@@ -183,7 +183,7 @@ class DataProcessor:
     def update_catalog_description(self):
         try:
             conn, cur = self._connect_to_db()
-            cur.execute(f'ALTER TABLE {self.new_table} ADD COLUMN ProductCatalogDescription JSON;')
+            cur.execute(f'ALTER TABLE {self.new_table} ADD COLUMN Product_Catalog_Description JSON;')
 
             fetch_query = f"""
             SELECT ProductModelID, CatalogDescription
@@ -198,7 +198,7 @@ class DataProcessor:
                     json = self.parse_xml_to_json(xml)
                     update_query = f"""
                     UPDATE {self.new_table}
-                    SET ProductCatalogDescription = %s
+                    SET Product_Catalog_Description = %s
                     WHERE ProductModelID = %s;    
                     """
                     cur.execute(update_query, (json, pm_id))
@@ -257,14 +257,18 @@ class DataProcessor:
     def update_weight_unit_measure_code(self):
         conn, cur = self._connect_to_db()
 
-        cur.execute(f'ALTER TABLE {self.new_table} ALTER COLUMN WeightUnitMeasureCode TYPE VARCHAR(20);')
+        cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN SizeUnitMeasureCode TO Size_Unit_Measure_Code;')
+
+        cur.execute(f'ALTER TABLE {self.new_table} RENAME COLUMN WeightUnitMeasureCode TO Weight_Unit_Measure_Code;')
+        cur.execute(f'ALTER TABLE {self.new_table} ALTER COLUMN Weight_Unit_Measure_Code TYPE VARCHAR(20);')
         update_query = f"""
         UPDATE {self.new_table}
-        SET WeightUnitMeasureCode = 'Gram'
-        WHERE WeightUnitMeasureCode = 'G';    
+        SET Weight_Unit_Measure_Code = 'Gram'
+        WHERE Weight_Unit_Measure_Code = 'G';    
         """
+    
         try: 
-            cur.execute(update_query)
+            #cur.execute(update_query)
             conn.commit()
 
             print('Successfully updated the weightunitmeasurecode column')
