@@ -1,7 +1,7 @@
 import json
 import psycopg2
 import xml.etree.ElementTree as ET
-
+from utils import auto_config as config
 
 class DataProcessor: 
     
@@ -25,11 +25,11 @@ class DataProcessor:
     def _connect_to_db(self):
         try: 
             conn = psycopg2.connect(
-                dbname=self.DB_NAME,
-                user=self.DB_USER,
-                password=self.DB_PASSWORD,
-                host='localhost',
-                port='5432'
+                dbname=config.DB_DATABASE,
+                user=config.DB_USER,
+                password=config.DB_PASSWORD,
+                host=config.DB_HOST,
+                port=config.DB_PORT
             )
             cur = conn.cursor()
             return conn, cur 
@@ -274,7 +274,3 @@ class DataProcessor:
             print('Successfully updated the weightunitmeasurecode column')
         except Exception as e:
             print(f'failed to update the weightunitmeasurecode column: {e}')
-
-
-TABLE_NAME = 'production.product'
-data_processor = DataProcessor(TABLE_NAME)

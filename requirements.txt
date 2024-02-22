@@ -1,0 +1,8 @@
+scipy==1.9.3
+tqdm==4.64.1
+numpy==1.23.5
+python-decouple==3.5
+SQLAlchemy==1.4.28
+sqlmodel==0.0.5
+sentence-transformers==2.3.1 
+faiss-cpu==1.7.4

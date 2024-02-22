@@ -4,15 +4,12 @@ import numpy as np
 import pandas as pd
 import pickle
 import psycopg2
-from sentence_transformers import SentenceTransformer 
+from sentence_transformers import SentenceTransformer
 
+from dao.database import DatabaseFactory 
+from utils import auto_config as config
 
 class DuplicateFinder:
-    
-    DB_NAME = 'Adventureworks'
-    DB_USER = 'postgres'
-    DB_PASSWORD = 'postgres'
-
     index_file = 'index.faiss'
     row_id_mapping_file = 'row_id_mapping.pkl'
 
@@ -23,27 +20,28 @@ class DuplicateFinder:
         self.index = faiss.IndexFlatL2(self.dimension)
         self.table_name = table_name
         self.row_id_mapping = []
+        self.data_manager = DatabaseFactory.build_database_manager(DatabaseFactory.DatabaseType.POSTGRES)
 
         self.subcategory_prompt = """The product subcategory is the most important feature to consider.
         For example, bottom brackets are different from brakes.
         After the product subcategory, the size is important. For example, the size 42 is very different from 48. 
         """
-    
+
     def _connect_to_db(self):
         try: 
             conn = psycopg2.connect(
-                dbname=self.DB_NAME,
-                user=self.DB_USER,
-                password=self.DB_PASSWORD,
-                host='localhost',
-                port='5432'
+                dbname=config.DB_DATABASE,
+                user=config.DB_USER,
+                password=config.DB_PASSWORD,
+                host=config.DB_HOST,
+                port=config.DB_PORT
             )
             cur = conn.cursor()
             return conn, cur 
         except Exception as e:
             print(f'Failed to connect to the db: {e}')
             return 
-
+        
     def _fetch_rows(self):
         conn, cur = self._connect_to_db()
         cur.execute(f'SELECT * FROM {self.table_name};')
@@ -237,19 +235,9 @@ class DuplicateFinder:
         print(f"Distance between {pair_ids[2][0]} and {pair_ids[2][1]}: {distance}")
 
 
-TABLE_NAME = 'production.product_flattened'
-duplicate_finder = DuplicateFinder('sentence-transformers/all-MiniLM-L6-v2', TABLE_NAME)
-#duplicate_finder.extract_lowest_distances(English=True)
 
 
 
-size_prompt = """The product subcategory is the most important feature to consider.
-The difference in size is less important than the product subcategory.
-"""
-#For example, the size 42 is very different from 48."""
-example1 = [964, 965, 961]
-example2 = [765, 766, 768]
-
-duplicate_finder.extract_distance_between_pairs([765, 10001, 10002], prompt=size_prompt, English=True)
+    
 
 
