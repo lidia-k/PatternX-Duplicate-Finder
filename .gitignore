@@ -5,3 +5,4 @@
 *.gz
 /ragenv
 synthea*/
+**/__pycache__/
