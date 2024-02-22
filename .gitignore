@@ -6,3 +6,4 @@
 /ragenv
 synthea*/
 **/__pycache__/
+.env
