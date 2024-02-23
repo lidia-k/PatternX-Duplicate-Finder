@@ -48,16 +48,18 @@ MATCH (p:Patient {id: $id})-[r]-(connectedNode)
 OPTIONAL MATCH (connectedNode)-[r2]-(otherConnectedNode)
 WHERE id(connectedNode) < id(otherConnectedNode)
 RETURN p, collect(DISTINCT connectedNode) as ConnectedNodes, 
+       collect(DISTINCT otherConnectedNode) as OtherNodes,
        collect(DISTINCT r) + collect(DISTINCT r2) as Relationships
 """
-for i in range(3):
+for i in range(len(datapoint_ids)):
     with driver.session() as session:
         result = session.run(base_query, id=datapoint_ids[i]).single()
         p_node = result['p']
         connected_nodes = result['ConnectedNodes']
+        other_nodes = result['OtherNodes']
         relationships = result['Relationships']
 
-        all_nodes = [p_node] + connected_nodes
+        all_nodes = [p_node] + connected_nodes + other_nodes
         neo4j_id_to_graph_idx = {node.element_id: idx for idx, node in enumerate(all_nodes)}
         node_types = [None] * len(all_nodes)
         for node in all_nodes:
