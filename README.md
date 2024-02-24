@@ -1,6 +1,6 @@
 # Duplicate Finder on Synthea Data with Graph Neural Networks
 
-The code lies in /GNN_on_FHIR directory.
+The code to run a duplicate finder for the Synthea Data is in /GNN_on_FHIR directory.
 
 ## Get Synthea Data
 
