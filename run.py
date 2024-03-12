@@ -8,8 +8,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run different functions based on input parameters.')
     parser.add_argument('project', choices=['adventureworks', 'penumbra'], type=str, help='The project to run')
     args = parser.parse_args()
-
-    if args.project == 'adventureworks':
+    
+    if not args.project:
+        parser.error(f'Please provide the project name as argument')
+    elif args.project == 'adventureworks':
         TABLE_NAME = 'production.product'
         duplicate_finder = DuplicateFinder('sentence-transformers/all-MiniLM-L6-v2', TABLE_NAME)
         #duplicate_finder.extract_lowest_distances(English=True)
