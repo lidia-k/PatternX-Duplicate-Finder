@@ -10,6 +10,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.project == 'adventureworks':
+        print('adventureworks')
         TABLE_NAME = 'production.product'
         duplicate_finder = DuplicateFinder('sentence-transformers/all-MiniLM-L6-v2', TABLE_NAME)
         #duplicate_finder.extract_lowest_distances(English=True)
