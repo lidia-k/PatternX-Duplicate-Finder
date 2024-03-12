@@ -6,3 +6,4 @@ SQLAlchemy==1.4.28
 sqlmodel==0.0.5
 sentence-transformers==2.3.1 
 faiss-cpu==1.7.4
+pandas==2.2.1

@@ -24,4 +24,4 @@ class DataProcessor:
             return 
 
     def insert_data(self):
-        data_bundles = glob.log("../../*.csv")
+        data_bundles = glob.glob("../../*.csv")
