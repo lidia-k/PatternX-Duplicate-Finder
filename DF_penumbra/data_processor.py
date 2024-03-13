@@ -62,7 +62,7 @@ class DataProcessor:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').astype('Int64')
 
-        new_name = f'{csv_file}_edited.csv'
+        new_name = csv_file.replace('.csv', '_updated.csv')
         df.to_csv(new_name, index=False)
         print(f'Updated file: {new_name}')
         return new_name
