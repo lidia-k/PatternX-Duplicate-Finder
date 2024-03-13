@@ -1,17 +1,19 @@
 import argparse
 
-#from DF_adventureworks.duplicate_finder import DuplicateFinder
+from DF_adventureworks.duplicate_finder import DuplicateFinder
 from DF_penumbra.data_processor import DataProcessor
 
 
 if __name__ == '__main__':
+    choices = ['adventureworks', 'penumbra']
+
     parser = argparse.ArgumentParser(description='Run different functions based on input parameters.')
-    parser.add_argument('project', choices=['adventureworks', 'penumbra'], type=str, help='The project to run')
+    parser.add_argument('project', choices=choices, type=str, help='The project to run')
     args = parser.parse_args()
-    
-    if not args.project:
-        parser.error(f'Please provide the project name as argument')
-    elif args.project == 'adventureworks':
+
+    if args.project == choices[0]:
+        print(f'Running it for {choices[0]}')
+
         TABLE_NAME = 'production.product'
         duplicate_finder = DuplicateFinder('sentence-transformers/all-MiniLM-L6-v2', TABLE_NAME)
         #duplicate_finder.extract_lowest_distances(English=True)
@@ -24,5 +26,7 @@ if __name__ == '__main__':
         example2 = [765, 766, 768]
 
         duplicate_finder.extract_distance_between_pairs([765, 10001, 10002], prompt=size_prompt, English=True)
-    elif args.project == 'penumbra':
-        DataProcessor()
+    
+    elif args.project == choices[1]:
+        print(f'Running it for {choices[1]}')
+        DataProcessor().import_csv_to_neo4j()

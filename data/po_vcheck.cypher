@@ -1,0 +1,25 @@
+LOAD CSV WITH HEADERS FROM '{file_path}' AS row
+CREATE (p:Provider {{
+    fullname: row.fullname,
+    npi: toInteger(row.npi),
+    nppes_data: row.nppes_data,
+    b_credential: row.b_credential,
+    fname: row.fname,
+    b_middle_name: row.b_middle_name,
+    lname: row.lname,
+    b_gender: row.b_gender,
+    b_last_updated: row.b_last_updated,
+    b_status: row.b_status,
+    a_address_1: row.a_address_1,
+    a_address_2: row.a_address_2,
+    a_city: row.a_city,
+    a_state: row.a_state,
+    a_zip: row.a_zip,
+    a_country_code: row.a_country_code,
+    t_code: row.t_code,
+    t_desc: row.t_desc,
+    t_lisc: row.t_lisc,
+    t_state: row.t_state,
+    t_primary: toBoolean(row.t_primary),
+    id: row.id
+}})

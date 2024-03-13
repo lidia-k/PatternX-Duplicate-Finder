@@ -7,3 +7,4 @@
 synthea*/
 **/__pycache__/
 .env
+*.csv
