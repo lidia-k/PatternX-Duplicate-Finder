@@ -42,7 +42,7 @@ class DataProcessor:
             }
             if 'all' not in csv_file:
                 df['franchise'] = [name_str.capitalize() for i in range(len(df))]
-                df.drop(columns=['Practice Type'], inplace=True)
+                #df.drop(columns=['Practice Type'], inplace=True)
                 df.replace(0, np.nan, inplace=True)
 
         if 'hcp' in csv_file:
