@@ -1,0 +1,16 @@
+LOAD CSV WITH HEADERS FROM '{file_path}' AS row
+CREATE (s:Speaker {{
+    franchise: row.franchise,
+    hid: row.hid,
+    type: row.type,
+    fullname: row.fullname,
+    npi: toInteger(row.npi),
+    sapNo: toInteger(row.sap_no),
+    category: row.category,
+    specialty: row.specialty,
+    org: row.org,
+    country: row.country,
+    title: row.title,
+    country2: row.country2,
+    id: row.id
+}});

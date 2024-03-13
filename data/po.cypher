@@ -23,9 +23,9 @@ CREATE (p:Provider {{
     taxCode: row.tax_code,
     currency: row.currency,
     email: row.email,
-    address1: row.addr1,
-    address2: row.addr2,
-    organization: row.org,
+    addr1: row.addr1,
+    addr2: row.addr2,
+    org: row.org,
     orgType: row.org_type,
     qbId: toInteger(row.qb_id),
     id: row.id

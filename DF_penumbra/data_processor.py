@@ -1,4 +1,5 @@
 import glob
+import numpy as np
 import pandas as pd
 
 from dao.NEO4J_Graph import Graph
@@ -15,10 +16,39 @@ class DataProcessor:
 
     def _update_csv_files(self, csv_file):
         df = pd.read_csv(csv_file)
-        node_type = f'po_{csv_file.split("-")[2].split(".")[0][:2]}'
-        df['id'] = [f'{node_type}_{i+1}' for i in range(len(df))]
-        
+
+        if 'speaker' in csv_file:
+            name_str = csv_file.split('-')[3].split('.')[0]  
+            file_name = f'./data/sp_{name_str}.csv'
+            node_type = f'sp_{name_str[:2]}'
+            rename = {
+                'Request Type': 'type',
+                'HCP Full Name': 'fullname',
+                'NPI Number': 'npi',
+                'HCP Category': 'category',
+                'HCP Specialty': 'specialty',
+                'HCP Institution / Customer Name': 'org',
+                'HCP Institution': 'org',
+                'SAP Customer ID': 'sap_no',
+                'Institution City': 'city',
+                'Institution State': 'state',
+                'HCP Country': 'country',
+                'HCP Email ': 'email',
+                'HCC ID': 'hid',
+                'HCP NPI#': 'npi',
+                'SAP Supplier ID': 'sap_no',
+                'Presentation Title': 'title',
+                'Country': 'country2',
+            }
+            if 'all' not in csv_file:
+                df['franchise'] = [name_str.capitalize() for i in range(len(df))]
+                df.drop(columns=['Practice Type'], inplace=True)
+                df.replace(0, np.nan, inplace=True)
+
         if 'hcp' in csv_file:
+            name_str = csv_file.split('-')[2].split('.')[0]  
+            file_name = f'./data/po_{name_str}.csv'
+            node_type = f'po_{name_str[:2]}'
             rename = {
                 'First Name': 'fname',
                 'Last Name': 'lname',
@@ -44,16 +74,17 @@ class DataProcessor:
                 'Primary Organization Type': 'org_type',
             }
             df = df.loc[:, ~df.columns.str.contains('^Unnamed', case=False)]
-        
-        if 'vcheck' in csv_file:
-            rename = {
-                'Full Name': 'fullname',
-                'b_first_name': 'fname',
-                'b_last_name': 'lname',
-            }
-            for col in ['b_first_name', 'b_last_name']:
-                df[col] = df[col].str.capitalize()
+    
+            if 'vcheck' in csv_file:
+                rename = {
+                    'Full Name': 'fullname',
+                    'b_first_name': 'fname',
+                    'b_last_name': 'lname',
+                }
+                for col in ['b_first_name', 'b_last_name']:
+                    df[col] = df[col].str.capitalize()
 
+        df['id'] = [f'{node_type}_{i+1}' for i in range(len(df))]
         df = df.rename(columns=rename)
         df.columns = [col.lower() for col in df.columns]
 
@@ -62,15 +93,19 @@ class DataProcessor:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').astype('Int64')
 
-        new_name = csv_file.replace('.csv', '_updated.csv')
-        df.to_csv(new_name, index=False)
-        print(f'Updated file: {new_name}')
-        return new_name
+        df.to_csv(file_name, index=False)
+        print(f'Updated file: {file_name}')
+        return file_name
 
     def _load_data_from_cypher(self, file_path):
-        cypher_file = './data/po.cypher'
-        if 'vcheck' in file_path:
-            cypher_file = './data/po_vcheck.cypher'
+        if 'sp' in file_path:
+            cypher_file = './data/sp.cypher'
+            if 'all' in file_path:
+                cypher_file = './data/sp_all.cypher'
+        else: 
+            cypher_file = './data/po.cypher'
+            if 'vcheck' in file_path:
+                cypher_file = './data/po_vcheck.cypher'
 
         with open(cypher_file, 'r') as f:
             query = f.read()
