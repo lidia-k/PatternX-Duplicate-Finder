@@ -83,11 +83,8 @@ class DataProcessor:
                 }
                 for col in ['b_first_name', 'b_last_name']:
                     df[col] = df[col].str.capitalize()
-        try: 
-            df['id'] = [f'{node_type}_{i+1}' for i in range(len(df))]
-        except Exception:
-            print(f'Error: {csv_file}')
-            
+
+        df['id'] = [f'{node_type}_{i+1}' for i in range(len(df))]
         df = df.rename(columns=rename)
         df.columns = [col.lower() for col in df.columns]
 
@@ -121,7 +118,6 @@ class DataProcessor:
         self.graph.wipe_database()
 
         data_bundles = glob.glob('./data/*.csv')
-        print(data_bundles)
         for f in data_bundles:
             fname = self._update_csv_files(f)
             self._load_data_from_cypher(fname)
