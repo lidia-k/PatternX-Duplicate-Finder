@@ -115,6 +115,8 @@ class DataProcessor:
         print(f'Loaded data from {file_path} to Neo4j')
 
     def import_csv_to_neo4j(self):
+        self.graph.wipe_database()
+
         data_bundles = glob.glob('./data/*.csv')
         for f in data_bundles:
             fname = self._update_csv_files(f)
