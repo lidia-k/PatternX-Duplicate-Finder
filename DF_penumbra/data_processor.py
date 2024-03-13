@@ -47,7 +47,7 @@ class DataProcessor:
 
         if 'hcp' in csv_file:
             name_str = csv_file.split('-')[2].split('.')[0]  
-            file_name = f'/data/po_{name_str}.csv'
+            file_name = f'data/po_{name_str}.csv'
             node_type = f'po_{name_str[:2]}'
             rename = {
                 'First Name': 'fname',
