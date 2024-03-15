@@ -48,7 +48,7 @@ class DataProcessor:
 
         if 'hcp' in csv_file:
             name_str = csv_file.split('-')[2].split('.')[0]  
-            file_name = f'./data/po_{name_str}.csv'
+            file_name = f'/data/po_{name_str}.csv'
             node_type = f'po_{name_str[:2]}'
             rename = {
                 'First Name': 'fname',
@@ -94,8 +94,9 @@ class DataProcessor:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').astype('Int64')
 
-        df.to_csv(file_name, index=False)
+        df.to_csv(f'./{file_name}', index=False)
         print(f'Updated file: {file_name}')
+        return file_name
 
     def _load_data_from_cypher(self, file_path):
         if 'sp' in file_path:
