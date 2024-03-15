@@ -48,7 +48,7 @@ class DataProcessor:
 
         if 'hcp' in csv_file:
             name_str = csv_file.split('-')[2].split('.')[0]  
-            file_name = f'data/po_{name_str}.csv'
+            file_name = f'./data/po_{name_str}.csv'
             node_type = f'po_{name_str[:2]}'
             rename = {
                 'First Name': 'fname',
@@ -84,11 +84,8 @@ class DataProcessor:
                 }
                 for col in ['b_first_name', 'b_last_name']:
                     df[col] = df[col].str.capitalize()
-        try: 
-            df['id'] = [f'{node_type}_{i+1}' for i in range(len(df))]
-        except Exception:
-            print(f'Error: {csv_file}')
-            
+
+        df['id'] = [f'{node_type}_{i+1}' for i in range(len(df))]
         df = df.rename(columns=rename)
         df.columns = [col.lower() for col in df.columns]
 
@@ -97,9 +94,8 @@ class DataProcessor:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').astype('Int64')
 
-        df.to_csv(f'./{file_name}', index=False)
+        df.to_csv(file_name, index=False)
         print(f'Updated file: {file_name}')
-        return file_name
 
     def _load_data_from_cypher(self, file_path):
         if 'sp' in file_path:
@@ -120,12 +116,10 @@ class DataProcessor:
 
     def import_csv_to_neo4j(self):
         #self.graph.wipe_database()
-        import pdb; pdb.set_trace()
         cmd = f'docker exec neo4j chown -R 777:777 import/data'
         subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
 
         data_bundles = glob.glob('./data/*.csv')
-        print(data_bundles)
         for f in data_bundles:
             fname = self._update_csv_file(f)
             self._load_data_from_cypher(fname)
