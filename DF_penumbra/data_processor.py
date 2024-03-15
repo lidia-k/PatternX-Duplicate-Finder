@@ -1,6 +1,7 @@
 import glob
 import numpy as np
 import pandas as pd
+import platform
 import subprocess
 
 from dao.NEO4J_Graph import Graph
@@ -117,8 +118,11 @@ class DataProcessor:
 
     def import_csv_to_neo4j(self):
         #self.graph.wipe_database()
-        cmd = "docker exec neo4j /bin/bash -c 'chown -R 777:777 import/data && chmod -R 777 import/data'"
-        subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
+
+        # On Linux, docker exec chown and chmod the data directory
+        if platform.system() == 'Linux':
+            cmd = "docker exec neo4j /bin/bash -c 'chown -R 777:777 import/data && chmod -R 777 import/data'"
+            subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
 
         data_bundles = glob.glob('./data/*.csv')
         for f in data_bundles:
