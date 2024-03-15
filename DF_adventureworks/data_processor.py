@@ -13,13 +13,13 @@ class DataProcessor:
         self.table_name = table_name
         self.new_table = self.table_name + '_flattened'
         
-        #self.create_duplicate_table()
-        #self.update_catalog_description()
-        #self.update_boolean_columns()
-        #self.update_categorical_columns()
-        #self.update_column_names()
-        #self.update_foreignkey_columns()
-        #self.drop_columns()
+        self.create_duplicate_table()
+        self.update_catalog_description()
+        self.update_boolean_columns()
+        self.update_categorical_columns()
+        self.update_column_names()
+        self.update_foreignkey_columns()
+        self.drop_columns()
         self.update_weight_unit_measure_code()
 
     def _connect_to_db(self):
@@ -268,7 +268,7 @@ class DataProcessor:
         """
     
         try: 
-            #cur.execute(update_query)
+            cur.execute(update_query)
             conn.commit()
 
             print('Successfully updated the weightunitmeasurecode column')
