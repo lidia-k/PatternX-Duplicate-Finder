@@ -2,7 +2,10 @@ import glob
 import numpy as np
 import pandas as pd
 import platform
+import requests
 import subprocess
+
+from fuzzywuzzy import fuzz
 
 from dao.NEO4J_Graph import Graph
 from utils import auto_config as config
@@ -129,21 +132,59 @@ class DataProcessor:
             fname = self._update_csv_file(f)
             self._load_data_from_cypher(fname)
     
-    def validate_NPIs(self):
+    def _check_against_gov_registry(self, npi):
+        api_url = "https://npiregistry.cms.hhs.gov/api/"
+        params = {
+                    "number": npi,
+                    "version": 2.1
+                }
+        res = requests.get(api_url, params=params)
+        return res
+
+    def validate_NPIs(self):        
         driver = self.graph.get_driver()
         with driver.session() as session:
+            # Check for NPIs that are not 10 digits
             query = '''
                 MATCH (n) 
                 WHERE n.npi IS NOT NULL AND size(toString(n.npi)) <> 10 
                 RETURN n.npi, n.id
                 '''
             result = session.run(query).data()
-            print(result)   
+            print(f'NPIs larger than 10 digits: {result}')   
 
+            # Return NPIs that are 10 digits
             query = '''
                 MATCH (n) 
                 WHERE n.npi IS NOT NULL AND size(toString(n.npi)) = 10 
-                RETURN n
+                RETURN n.npi, n.id, n.fname, n.lname, n.fullname
                 '''
+            results = session.run(query).data()
+            for result in results:
+                id = result['n.id']
+                npi = result['n.npi']
+                fullname = result.get('n.fullname', None)
+                if not fullname:
+                    fname = result.get('n.fname', None)
+                    lname = result.get('n.lname', None)
+                    if not fname or not lname:
+                        print(f"Missing name for NPI {npi}, {id}")
+                        continue
+                    fullname = f'{fname} {lname}'
+                    
+                # Check NPI and name against government registry
+                res = self._check_against_gov_registry(npi)
+                if res.status_code == 200:
+                    reg_r= res.json()["results"]
+                    if len(reg_r) > 1:
+                        print(f"More than one NPI returned for {npi}, {id}")
+                    else: 
+                        basic = reg_r[0]['basic']
+                        name = f'{basic["first_name"]} {basic["last_name"]}'
+                        ratio = fuzz.ratio(fullname.lower(), name.lower())
+                        print(name, fullname, ratio)
+                else:
+                    print(f"Failed to retrieve data for NPI {npi}, {id}: {res.status_code}")
+                
             
 
