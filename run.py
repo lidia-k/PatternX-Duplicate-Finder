@@ -30,5 +30,5 @@ if __name__ == '__main__':
     elif args.project == choices[1]:
         print(f'Running it for {choices[1]}')
         proc = DataProcessor()
-        proc.update_csv_files()
+        #proc.update_csv_files()
         proc.load_data_to_neo4j()
