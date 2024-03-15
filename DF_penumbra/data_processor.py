@@ -124,7 +124,7 @@ class DataProcessor:
         sp_bundles = glob.glob('./data/sp_*.csv')
         po_bundles.extend(sp_bundles)
         for f in po_bundles:
-            f = f.replace('.', '', 1)
+            f = f.replace('./', '', 1)
             self._load_data_from_cypher(f)
     
     def validate_npi(self):
