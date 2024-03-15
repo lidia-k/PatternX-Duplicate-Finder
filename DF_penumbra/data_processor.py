@@ -128,3 +128,14 @@ class DataProcessor:
         for f in data_bundles:
             fname = self._update_csv_file(f)
             self._load_data_from_cypher(fname)
+    
+    def validate_NPIs(self):
+        driver = self.graph.get_driver()
+        with driver.session() as session:
+            query = '''
+                MATCH (n) 
+                WHERE n.npi IS NOT NULL AND size(toString(n.npi)) <> 10 
+                RETURN n.npi as npi
+                '''
+            result = session.run(query).data()
+            print(result)   
