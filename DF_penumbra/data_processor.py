@@ -116,7 +116,7 @@ class DataProcessor:
 
     def import_csv_to_neo4j(self):
         #self.graph.wipe_database()
-        cmd = f'docker exec neo4j chown -R 777:777 import/data'
+        cmd = "docker exec neo4j /bin/bash -c 'chown -R 777:777 import/data && chmod -R 777 import/data'"
         subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
 
         data_bundles = glob.glob('./data/*.csv')
