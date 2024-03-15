@@ -1,6 +1,7 @@
 import glob
 import numpy as np
 import pandas as pd
+import subprocess
 
 from dao.NEO4J_Graph import Graph
 from utils import auto_config as config
@@ -14,7 +15,7 @@ class DataProcessor:
             config.NEO4J_PASSWORD
         )
 
-    def _update_csv_files(self, csv_file):
+    def _update_csv_file(self, csv_file):
         df = pd.read_csv(csv_file)
 
         if 'speaker' in csv_file:
@@ -118,10 +119,13 @@ class DataProcessor:
         print(f'Loaded data from {file_path} to Neo4j')
 
     def import_csv_to_neo4j(self):
-        self.graph.wipe_database()
+        #self.graph.wipe_database()
+        import pdb; pdb.set_trace()
+        cmd = f'docker exec neo4j chown -R 777:777 import/data'
+        subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
 
         data_bundles = glob.glob('./data/*.csv')
         print(data_bundles)
         for f in data_bundles:
-            fname = self._update_csv_files(f)
+            fname = self._update_csv_file(f)
             self._load_data_from_cypher(fname)
