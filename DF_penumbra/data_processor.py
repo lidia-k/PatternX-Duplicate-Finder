@@ -180,7 +180,12 @@ class DataProcessor:
                         print(f"More than one NPI returned for {npi}, {id}")
                     else: 
                         basic = reg_r[0]['basic']
-                        name = f'{basic["first_name"]} {basic["last_name"]}'
+                        fname = basic.get('first_name', None)
+                        lname = basic.get('last_name', None)
+                        if not fname and not lname:
+                            print(f"Missing name for NPI {npi}, {id} in the registry")
+                            continue
+                        name = f"{fname} {lname}"
                         ratio = fuzz.ratio(fullname.lower(), name.lower())
                         print(name, fullname, ratio)
                 else:
