@@ -14,7 +14,7 @@ class DataProcessor:
             config.NEO4J_PASSWORD
         )
 
-    def _update_csv_files(self, csv_file):
+    def _update_csv_file(self, csv_file):
         df = pd.read_csv(csv_file)
 
         if 'speaker' in csv_file:
@@ -114,10 +114,24 @@ class DataProcessor:
         self.graph.cypher_transaction(query)
         print(f'Loaded data from {file_path} to Neo4j')
 
-    def import_csv_to_neo4j(self):
-        self.graph.wipe_database()
-
+    def update_csv_files(self):
         data_bundles = glob.glob('./data/*.csv')
         for f in data_bundles:
-            fname = self._update_csv_files(f)
-            self._load_data_from_cypher(fname)
+            fname = self._update_csv_file(f)
+
+    def load_data_to_neo4j(self):
+        #self.graph.wipe_database()
+        po_bundles = glob.glob('./data/po_*.csv')
+        sp_bundles = glob.glob('./data/sp_*.csv')
+        po_bundles.extend(sp_bundles)
+        for f in po_bundles:
+            self._load_data_from_cypher(f)
+    
+    def validate_npi(self):
+        """
+        First, check if the NPI is 10 digits.
+        Then, check if the NPI is in the government registry.
+        """
+        pass
+
+
