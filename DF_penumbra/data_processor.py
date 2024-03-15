@@ -135,7 +135,7 @@ class DataProcessor:
             query = '''
                 MATCH (n) 
                 WHERE n.npi IS NOT NULL AND size(toString(n.npi)) <> 10 
-                RETURN n.npi as npi
+                RETURN n
                 '''
             result = session.run(query).data()
             print(result)   
