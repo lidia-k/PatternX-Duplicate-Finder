@@ -1,6 +1,8 @@
 import glob
 import numpy as np
+import os
 import pandas as pd
+import platform
 
 from dao.NEO4J_Graph import Graph
 from utils import auto_config as config
@@ -116,6 +118,8 @@ class DataProcessor:
     def update_csv_files(self):
         data_bundles = glob.glob('./data/*.csv')
         for f in data_bundles:
+            if platform.system() == 'Linux':
+                os.chmod(f, 0o777)    
             self._update_csv_file(f)
 
     def load_data_to_neo4j(self):
