@@ -138,7 +138,10 @@ class DataProcessor:
                     "number": npi,
                     "version": 2.1
                 }
-        res = requests.get(api_url, params=params)
+        try: 
+            res = requests.get(api_url, params=params)
+        except Exception as e:
+            raise e
         return res
 
     def validate_NPIs(self):        
@@ -160,10 +163,11 @@ class DataProcessor:
                 RETURN n.npi, n.id, n.fname, n.lname, n.fullname
                 '''
             results = session.run(query).data()
-
+            output_f = open('npi_val.txt', 'w')
             for result in results:
                 id = result['n.id']
                 npi = result['n.npi']
+
                 fullname = result.get('n.fullname', None)
                 if not fullname:
                     fname = result.get('n.fname', None)
@@ -172,34 +176,26 @@ class DataProcessor:
                         print(f"Missing name for NPI {npi}, {id}")
                         continue
                     fullname = f'{fname} {lname}'
-                    
+
                 # Check NPI and name against government registry
                 res = self._check_against_gov_registry(npi)
-                if res.status_code == 200:
-                    reg_r= res.json()["results"]
-                    if len(reg_r) > 1:
-                        print(f"More than one NPI returned for {npi}, {id}")
-                    else: 
-                        try: 
-                            basic = reg_r[0]['basic']
-                        except IndexError:
-                            print(f"No data returned for NPI {npi}, {id}: {reg_r}")
-                            continue
-                        fname = basic.get('first_name', None)
-                        lname = basic.get('last_name', None)
-                        if not fname and not lname:
-                            print(f"Missing name for NPI {npi}, {id} in the registry")
-                            continue
-                        
-                        output_f = open('npi_val.txt', 'w')
-                        name = f"{fname} {lname}"
-                        ratio = fuzz.ratio(fullname.lower(), name.lower())
-                        if ratio != 100:
-                            output_f.write(f'{fullname} vs {name} : {ratio} for NPI {npi}, {id}\n')
-                        
-                        output_f.close()
-                else:
-                    print(f"Failed to retrieve data for NPI {npi}, {id}: {res.status_code}")
-                
+                reg_output = res.json()["results"]
+                if not reg_output:
+                    print(f'No data returned for NPI {npi}, {id}')
+                elif len(reg_output) > 1:
+                    print(f"More than one NPI returned for {npi}, {id}")
+                else: 
+                    fname = reg_output[0]['basic'].get('first_name', None)
+                    lname = reg_output[0]['basic'].get('last_name', None)
+                    if not fname and not lname:
+                        print(f"Missing name for NPI {npi}, {id} in the registry")
+                        continue
+                    
+                    name = f"{fname} {lname}"
+                    ratio = fuzz.ratio(fullname.lower(), name.lower())
+                    if ratio != 100:
+                        output_f.write(f'{fullname} vs {name} : {ratio} for NPI {npi}, {id}\n')  
+  
+            output_f.close()    
             
 
