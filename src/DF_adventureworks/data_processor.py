@@ -1,3 +1,41 @@
+"""
+intent: tweak the AdventureWorks Product table for language model analysis
+input : Product table
+output: 
+.  revised table, where codes like "S" and "T" are converted into meaningful words 
+.  "Standard" and "Touring".  column are also renamed, 
+.   eg "makeflag" --> "production_type"
+usage :
+.  PREREQUISITE:
+.  have the container with the postgres AdvantureWorks db on it.
+.  if you've installed postgres on your machine, ensure postgres is not auto-started or 
+.  running on the host OS.  else this error occurs:
+.     Failed to bind tcp 0.0.0.0:5432 address already in use
+.  on Unix systems, check if postgress is running using ps, ss, or lsof:
+.  > ps -ef | grep postgres
+.  > ss -lptn 'sport = :5432'
+.  > lsof -i tcp:5432
+.  stop postgress if needed
+.  > systemctl stop postgresql
+. 
+.  START DOCKER
+.  > docker-compose up            # if needed, > docker ps -a (get container ###); docker start ###
+.  > docker exec -it ### bash
+.  > psql -h localhost -U postgres Adventureworks
+.  > select * from pg_catalog.pg_tables
+.  > select * from production.product
+. 
+.  PREPARE DATA
+.  > python3 data_processor.py 
+.    run one function at a time by (un)commenting them out in __init().  The first run needs 
+.    create_duplicate_tables(); update_catalog_description_(); ... update_foreignkey_columns()
+.  then run drop_columns() or update_weight_unit_measure_code() as needed.
+. 
+.  EXPERIMENT
+.  > python3 duplicate_finder.py
+.  adjust runs as required by experiments
+"""
+
 import json
 import psycopg2
 import xml.etree.ElementTree as ET

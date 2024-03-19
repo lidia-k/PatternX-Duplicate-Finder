@@ -1,3 +1,45 @@
+"""
+intent: to see if hard-coded slight changes to rows can be detected as duplicates
+input ; Adventure Works Product table in database listening on port 5432.
+output: distance measures between original row and altered ones
+usage : 
+.  edit _add_duplicate_rows() to hard-code the desired tweeks to individual rows.
+.  good tweaks are in Name, Size, and Productsubcategoryname.
+.  edit the main body to print the results as extract_distance_between_pairs() or 
+.  extract_lowewst_distance()
+.  then run:        python3 duplicate_finder.pymethod: 
+.  then measure the the similarity in resulting row vectors.
+method: the call stack looks like this:
+.  main()
+.  |--> extract_distance_between_pairs()    OR  extract_lowest_distances()
+.  |    |--> _generate_embeddings() 
+.  |    |           |--> add_duplicate_rows()
+.  |    |--> _create_similarity_matrix()
+notes :
+.  result:
+.    to stress importance of a column, like category, we want to include that 
+.    direction in the prompt, such as "product type is most important, then size".  
+.    unfortunately this did not work, so we cloned the Column before vectorizing it.  
+.    this worked, but it's ugly.
+.  highlights:
+.    _add_duplicate_row(  row         ) - clone a row and lowercase its name.  not used.
+.    _add_duplicate_rows( row, prompt ) - add 2 rows, 
+.     one with a changed size, the other with changed subcategory
+
+the Adventure Works Product table:
+                                                      finished        safety                                            sizeunit
+                                                make   goods           stock   reorder                                   measure
+pid |          name           | productnumber | flag | flag | color  | level | point | standardcost | listprice | size | code | 
+----+-------------------------+---------------+------+------+--------+-------+-------+--------------+-----------+------+------+-...
+765 | Road-650 Black, 58      | BK-R50B-58    | t    | t    | Black  |   100 |    75 |     486.7066 |    782.99 | 58   | CM   | ...
+766 | Road-650 Black, 60      | BK-R50B-60    | t    | t    | Black  |   100 |    75 |     486.7066 |    782.99 | 60   | CM   | ...
+768 | Road-650 Black, 44      | BK-R50B-44    | t    | t    | Black  |   100 |    75 |     486.7066 |    782.99 | 44   | CM   | ...
+961 | Touring-3000 Yellow, 44 | BK-T18Y-44    | t    | t    | Yellow |   100 |    75 |     461.4448 |    742.35 | 44   | CM   | ...
+964 | Touring-3000 Yellow, 58 | BK-T18Y-58    | t    | t    | Yellow |   100 |    75 |     461.4448 |    742.35 | 58   | CM   | ...
+965 | Touring-3000 Yellow, 62 | BK-T18Y-62    | t    | t    | Yellow |   100 |    75 |     461.4448 |    742.35 | 62   | CM   | ...
+"""
+
+
 from itertools import combinations
 
 import numpy as np
