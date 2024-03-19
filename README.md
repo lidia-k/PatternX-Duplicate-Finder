@@ -1,21 +1,21 @@
 # Dulicate Finder
 
 The repo holds duplicate finders built for different datasets. 
-DF_adventureworks is for the experiment run on MS' adventureworks data. 
-GNN_on_FHIR is for the experiment run on the Synthea data. 
-DF_penumbra is for the duplication detection carried out on the client data. 
+- DF_adventureworks is for the experiment run on MS' adventureworks data. 
+- GNN_on_FHIR is for the experiment run on the Synthea data. 
+- DF_penumbra is for the duplication detection carried out on the client data. 
 
 ## Adventure Works
 
 ### How to set up Adventure Works on Postgres, using Docker.
 
-Step 1. Clone [this repo](https://github.com/lorint/AdventureWorks-for-Postgres) 
+**Step 1.** Clone [this repo](https://github.com/lorint/AdventureWorks-for-Postgres) 
 
-Step 2. Download [Adventure Works 2014](https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks-oltp-install-script.zip). It doesn't have to be the 2014 version but that’s what the above repo is using. If the database schema of other versions is different from the 2014 one, you will have to update the ruby script to convert data.
+**Step 2.** Download [Adventure Works 2014](https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks-oltp-install-script.zip). It doesn't have to be the 2014 version but that’s what the above repo is using. If the database schema of other versions is different from the 2014 one, you will have to update the ruby script to convert data.
 
-Step 3. Rename the zip file to `adventure_works_2014_OLTP_script.zip` to be compatible with the filename used in the dockerfile.
+**Step 3.** Rename the zip file to `adventure_works_2014_OLTP_script.zip` to be compatible with the filename used in the dockerfile.
 
-Step 4. Run docker-compose up at the root level of the repo. It will build a postgres container with the data restored in it.
+**Step 4.** Run docker-compose up at the root level of the repo. It will build a postgres container with the data restored in it.
 
 ### How to run the duplicate finder
 
