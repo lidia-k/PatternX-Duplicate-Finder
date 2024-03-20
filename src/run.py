@@ -30,7 +30,7 @@ if __name__ == '__main__':
     
     elif args.project == choices[1]:
         print(f'Running it for {choices[1]}')
-        #dp = DataProcessor()
-        #dp.import_csv_to_neo4j()
-        nv = NPIValidator()
-        nv.validate_NPIs()
+        dp = DataProcessor()
+        dp.import_csv_to_neo4j()
+        #nv = NPIValidator()
+        #nv.validate_NPIs()
