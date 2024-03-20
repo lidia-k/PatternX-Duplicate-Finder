@@ -3,7 +3,7 @@ import argparse
 #from DF_adventureworks.duplicate_finder import DuplicateFinder
 from DF_penumbra.data_processor import DataProcessor
 from DF_penumbra.npi_vaildator import NPIValidator
-
+from DF_penumbra.duplicate_finder import DuplicateFinder
 
 if __name__ == '__main__':
     choices = ['adventureworks', 'penumbra']
@@ -30,7 +30,8 @@ if __name__ == '__main__':
     
     elif args.project == choices[1]:
         print(f'Running it for {choices[1]}')
-        dp = DataProcessor()
-        dp.import_csv_to_neo4j()
-        #nv = NPIValidator()
-        #nv.validate_NPIs()
+        DataProcessor().import_csv_to_neo4j()
+        #NPIValidator().validate_NPIs()
+        df = DuplicateFinder()
+        #df.find_duplicates_by_fullname()
+        #df.find_duplicates_by_fullname_and_npi()

@@ -60,6 +60,7 @@ class DataProcessor:
                 'Last Name': 'lname',
                 'Full Name': 'fullname',
                 'National Physician ID': 'npi',
+                'National Physician ID/RPPS ID': 'npi',
                 'Email Address': 'email',
                 'Quickbase Record ID#':  'qb_id',
                 'Contact Type': 'ctype',
