@@ -47,6 +47,7 @@ class DataProcessor:
             }
             df['id'] = [f'{node_type}_{i+3}' for i in range(len(df))]
             if 'all' not in csv_file:
+                df['id'] = [f'{node_type}_{i+2}' for i in range(len(df))]
                 df['franchise'] = [name_str.capitalize() for i in range(len(df))]
                 #df.drop(columns=['Practice Type'], inplace=True)
                 df.replace(0, np.nan, inplace=True)
@@ -123,7 +124,7 @@ class DataProcessor:
         print(f'Loaded data from {file_path} to Neo4j')
 
     def import_csv_to_neo4j(self):
-        #self.graph.wipe_database()
+        self.graph.wipe_database()
 
         # On Linux, docker exec chown and chmod the data directory
         if platform.system() == 'Linux':
