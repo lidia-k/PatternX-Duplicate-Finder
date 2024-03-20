@@ -45,9 +45,9 @@ class DataProcessor:
                 'Presentation Title': 'title',
                 'Country': 'country2',
             }
-            df['id'] = [f'{node_type}_{i+3}' for i in range(len(df))]
+            df['id'] = [f'{node_type}_{i+2}' for i in range(len(df))]
             if 'all' not in csv_file:
-                df['id'] = [f'{node_type}_{i+1}' for i in range(len(df))]
+                df['id'] = [f'{node_type}_{i+3}' for i in range(len(df))]
                 df['franchise'] = [name_str.capitalize() for i in range(len(df))]
                 #df.drop(columns=['Practice Type'], inplace=True)
                 df.replace(0, np.nan, inplace=True)
