@@ -18,7 +18,7 @@ class NPIValidator:
         params = {"number": npi, "version": 2.1}
         try:
             response = requests.get(self.api_url, params=params)
-            response.raise_for_status()  # Raise an exception for HTTP errors
+            response.raise_for_status()  
             return response.json().get("results", [])
         except Exception as e:
             print(f"Error checking NPI {npi}: {e}")
@@ -34,7 +34,7 @@ class NPIValidator:
         result = session.run(query).data()
         print(f'NPIs larger than 10 digits: {result}')   
 
-    def validate_NPIs(self, results):
+    def validate_NPIs(self):
         driver = self.graph.get_driver()
         with driver.session() as session:
             self._check_digits(session)
@@ -45,22 +45,36 @@ class NPIValidator:
                     RETURN n.npi, n.id, n.fname, n.lname, n.fullname
                     '''
             results = session.run(query).data()
+            fmatch, pmatch, lmatch = '', '', ''
             with open('npi_val.txt', 'w') as output_f:
+                output_f.write(f'NPI validation results: Total {len(results)}\n')
                 for result in results:
                     npi, id = result['n.npi'], result['n.id']
                     fullname = result.get('n.fullname') or f"{result.get('n.fname', '')} {result.get('n.lname', '')}".strip()
 
                     if not fullname:
-                        print(f"Missing name for NPI {npi}, {id}")
+                        out = f'Missing name for NPI {npi}, {id}'
+                        output_f.write(out + '\n')
                         continue
 
-                    registry_results = self.check_against_gov_registry(npi)
-                    if not registry_results:
-                        print(f'No data returned for NPI {npi}, {id}')
+                    api_results = self.check_against_gov_registry(npi)
+                    if not api_results:
+                        out = f'No data returned for NPI {npi}, {id}'
+                        print(out)
+                        output_f.write(out + '\n')
                         continue
 
-                    for reg in registry_results:
-                        reg_name = f"{reg['basic'].get('first_name', '')} {reg['basic'].get('last_name', '')}".strip()
-                        ratio = fuzz.ratio(fullname.lower(), reg_name.lower())
-                        if ratio != 100:
-                            output_f.write(f'{fullname} vs {reg_name} : {ratio} for NPI {npi}, {id}\n')
+                    basic = api_results[0]['basic']
+                    name = f"{basic.get('first_name', '')} {basic.get('last_name', '')}".strip()
+                    ratio = fuzz.ratio(fullname.lower(), name.lower())
+                    
+                    if ratio == 100:
+                        fmatch += f'Exact match for {fullname} vs {name} : {ratio} for NPI {npi}, {id}\n'
+                    else:
+                        if ratio > 80:
+                            pmatch += f'Partial match for {fullname} vs {name} : {ratio} for NPI {npi}, {id}\n'
+                        else: 
+                            lmatch += f'Low ratio {fullname} vs {name} : {ratio} for NPI {npi}, {id}\n'
+                    
+                output_f.write(fmatch + pmatch + lmatch)
+                          

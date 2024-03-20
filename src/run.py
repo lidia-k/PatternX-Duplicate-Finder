@@ -2,6 +2,7 @@ import argparse
 
 #from DF_adventureworks.duplicate_finder import DuplicateFinder
 from DF_penumbra.data_processor import DataProcessor
+from DF_penumbra.npi_vaildator import NPIValidator
 
 
 if __name__ == '__main__':
@@ -29,6 +30,7 @@ if __name__ == '__main__':
     
     elif args.project == choices[1]:
         print(f'Running it for {choices[1]}')
-        dp = DataProcessor()
+        #dp = DataProcessor()
         #dp.import_csv_to_neo4j()
-        dp.validate_NPIs()
+        nv = NPIValidator()
+        nv.validate_NPIs()
