@@ -30,8 +30,7 @@ if __name__ == '__main__':
     
     elif args.project == choices[1]:
         print(f'Running it for {choices[1]}')
-        DataProcessor().import_csv_to_neo4j()
+        #DataProcessor().import_csv_to_neo4j()
         #NPIValidator().validate_NPIs()
         df = DuplicateFinder()
-        #df.find_duplicates_by_fullname()
-        #df.find_duplicates_by_fullname_and_npi()
+        df.find_obvious_duplicate()
