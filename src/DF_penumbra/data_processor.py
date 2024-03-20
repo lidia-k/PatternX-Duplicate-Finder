@@ -45,12 +45,12 @@ class DataProcessor:
                 'Presentation Title': 'title',
                 'Country': 'country2',
             }
+            df['id'] = [f'{node_type}_{i+3}' for i in range(len(df))]
             if 'all' not in csv_file:
                 df['franchise'] = [name_str.capitalize() for i in range(len(df))]
                 #df.drop(columns=['Practice Type'], inplace=True)
                 df.replace(0, np.nan, inplace=True)
-
-        if 'hcp' in csv_file:
+        elif 'hcp' in csv_file:
             name_str = csv_file.split('-')[2].split('.')[0]  
             file_name = f'/data/po_{name_str}.csv'
             node_type = f'po_{name_str[:2]}'
@@ -79,17 +79,20 @@ class DataProcessor:
                 'Primary Organization Type': 'org_type',
             }
             df = df.loc[:, ~df.columns.str.contains('^Unnamed', case=False)]
+            df['id'] = [f'{node_type}_{i+2}' for i in range(len(df))]
     
             if 'vcheck' in csv_file:
                 rename = {
                     'Full Name': 'fullname',
                     'b_first_name': 'fname',
                     'b_last_name': 'lname',
+                    'a_country_code': 'country'
                 }
                 for col in ['b_first_name', 'b_last_name']:
                     df[col] = df[col].str.capitalize()
-
-        df['id'] = [f'{node_type}_{i+1}' for i in range(len(df))]
+        else: 
+            print(f'File {csv_file} not recognized')
+        
         df = df.rename(columns=rename)
         df.columns = [col.lower() for col in df.columns]
 
