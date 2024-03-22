@@ -118,7 +118,7 @@ class DataProcessor:
             else:
                 df['id'] = [f'{node_type}_{i+3}' for i in range(len(df))]
                 df['franchise'] = [name_str.capitalize() for i in range(len(df))]
-                df.drop(columns=['Practice Type'], inplace=True)
+                #df.drop(columns=['Practice Type'], inplace=True)
                 df.replace(0, np.nan, inplace=True) 
         
         elif 'hcp' in csv_file:

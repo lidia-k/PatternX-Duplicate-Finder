@@ -89,7 +89,7 @@ docker run \
 ```
 
 Then, you can run the run script with the argument. 
-When run successfully, you should see the names of the original and updated files printed on your terminal.
+When successfully run, you should see the names of the original and updated files printed on your terminal.
 You can check Neo4j GUI (localhost:7474) to see there is data loaded properly.  
 ```
 python3 run.py penumbra
