@@ -94,3 +94,10 @@ You can check Neo4j GUI (localhost:7474) to see there is data loaded properly.
 ```
 python3 run.py penumbra
 ```
+
+### Validate NPIs against the government registry
+
+### Find duplicates 
+
+1. Obvious duplicates
+2. Use a language model to generate vectors for each row. The obvious duplicates are removed (fullname + npi, fullname + email)

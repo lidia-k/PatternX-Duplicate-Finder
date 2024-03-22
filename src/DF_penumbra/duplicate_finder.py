@@ -43,7 +43,28 @@ class DuplicateFinder:
                     MERGE (a)-[:r1_fullname_email]-(b)
                     RETURN count(*)
                     '''
-            queries = [name_q, name_npi_q, name_country_q, name_s_q, name_email_q]
-            for query in queries:
-                result = session.run(query)
-                print(f'Found {result.single()[0]} duplicates')
+            name_sno_q = '''
+                    MATCH (a),(b)
+                    WHERE a.fullname = b.fullname AND a.sap_no = b.sap_no AND id(a) < id(b)
+                    MERGE (a)-[:r1_fullname_sap_no]-(b)
+                    RETURN count(*)
+                    '''
+            name_qid_q = '''
+                    MATCH (a),(b)
+                    WHERE a.fullname = b.fullname AND a.qb_id = b.qb_id AND id(a) < id(b)
+                    MERGE (a)-[:r1_fullname_qb_id]-(b)
+                    RETURN count(*)
+                    '''
+            dict_q = {
+                'fullname': name_q,
+                'fullname & npi': name_npi_q,
+                'fullname & country': name_country_q,
+                'fullname & specialty': name_s_q,
+                'fullname & email': name_email_q,
+                'fullname & sap_no': name_sno_q,
+                'fullname & qb_id': name_qid_q
+            }
+            for k, q in dict_q.items():
+                result = session.run(q)
+                print(f'Found {result.single()[0]} duplicates for {k}')
+    

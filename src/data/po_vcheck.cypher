@@ -21,5 +21,6 @@ CREATE (p:Provider {{
     t_lisc: row.t_lisc,
     t_state: row.t_state,
     t_primary: toBoolean(row.t_primary),
-    id: row.id
+    id: row.id,
+    text: row.text
 }})
