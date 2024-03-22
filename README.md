@@ -74,7 +74,7 @@ The code also creates `db_info.json` that maps all the node types and edge types
 
 ## Penumbra 
 
-### Load the data in csv files to Neo4j
+### Run Neo4J
 
 You first need to pull a Neo4j docker image and run a docker container for Neo4j.
 ```
@@ -88,16 +88,36 @@ docker run \
     -d neo4j:latest
 ```
 
-Then, you can run the run script with the argument. 
-When successfully run, you should see the names of the original and updated files printed on your terminal.
-You can check Neo4j GUI (localhost:7474) to see there is data loaded properly.  
-```
-python3 run.py penumbra
-```
+### How to run the duplicate finder 
 
-### Validate NPIs against the government registry
+Depending on which step you want to implement, you can adjust the run file, and run `python3 run.py penumbra`
 
-### Find duplicates 
+**Step 1.** Process and load the csv files to Neo4J.
 
-1. Obvious duplicates
-2. Use a language model to generate vectors for each row. The obvious duplicates are removed (fullname + npi, fullname + email)
+- Input: The original csv files and the cypher files should reside in /src/data.
+- Usage: `DataProcessor().import_csv_to_neo4j()` in the run file. 
+- Output: Check Neo4j GUI (localhost:7474) to see there is data loaded properly.  
+
+**Step 2.** Validate NPIs and names against the government registry. 
+
+- Input: NPI numbers and full names from Neo4J
+- Usage: `NPIValidator().validate_NPIs()` in the run file.
+- Method: 
+    1) Check if an NPI is 10 digits. 
+    2) Check if the number exists and names match against [the gov NPI Registry](https://npiregistry.cms.hhs.gov/search). 
+       We're using Levenshtein Distance from FuzzyWuzzy to calculate the differences between names. 
+- Output: `npi_val.txt` file gets created, recording all the results. 
+
+**Step 3.** Find obvious duplicates.
+
+- Input: The data in Neo4J
+- Usage: `DuplicateFinder().find_obvious_duplicate()`
+- Method:
+    1) Create an edge between two nodes if their values of a given property are exact matches. The edge types we create are: fullname, fullname_npi, fullname_country, fullname_speciality, fullname_email, fullname_sap_no, fullname_qb_id.
+    2) We define the nodes that have the edge types of fullname_npi, fullname_email, fullname_sap_no, or fullname_qb_id as "obvious duplicates."
+- Output: Edges craeted between matching nodes. 
+
+**Step 4.** Do RAG with a language model. 
+- Method: 
+    1) When processing and loading the original data to Neo4J in the step 1, the text summary gets generated for each node.
+    2) 
