@@ -8,3 +8,4 @@ synthea*/
 **/__pycache__/
 .env
 *.csv
+.DS_Store
