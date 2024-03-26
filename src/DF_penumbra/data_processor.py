@@ -93,7 +93,7 @@ class DataProcessor:
                 
                 if col in ['National Physician ID', 'npi', 'NPI Number']:
                     col = 'National Provider Identifier(NPI)' 
-                if pd.isnull(val) or val in ['N/A', '#N/A', 'N/A ', 'n/a (ask Carson Milner)']:
+                if pd.isnull(val):
                     continue 
                 if isinstance(val, float):
                    val = int(val)
@@ -122,8 +122,6 @@ class DataProcessor:
                 df['id'] = [f'{node_type}_{i+3}' for i in range(len(df))]
                 df['franchise'] = [name_str.capitalize() for i in range(len(df))]
                 #df.drop(columns=['Practice Type'], inplace=True)
-                df.replace(0, np.nan, inplace=True) 
-                df.replace('0', np.nan, inplace=True) 
         
         elif 'hcp' in csv_file:
             name_str = csv_file.split('-')[2].split('.')[0]  
@@ -146,6 +144,9 @@ class DataProcessor:
         else: 
             print(f'File {csv_file} not recognized')
         
+        null_val = [0, '0', 'N/A', '#N/A', 'N/A ', 'n/a (ask Carson Milner)']
+        for val in null_val:
+            df.replace(val, np.nan, inplace=True)
         df = self._convert_row_to_text(df)
         df = df.rename(columns=rename)
         df.columns = [col.lower() for col in df.columns]
