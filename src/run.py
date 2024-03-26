@@ -33,4 +33,5 @@ if __name__ == '__main__':
         DataProcessor().import_csv_to_neo4j()
         #NPIValidator().validate_NPIs()
         df = DuplicateFinder()
-        df.find_obvious_duplicate()
+        df.build_duplicate_edges()
+        #df.find_obvious_duplicates()

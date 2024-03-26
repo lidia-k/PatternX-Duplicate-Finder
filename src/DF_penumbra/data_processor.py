@@ -37,7 +37,6 @@ PO_COLS = {
     'National Physician ID/RPPS ID': 'npi',
     'Email Address': 'email',
     'Quickbase Record ID#':  'qb_id',
-    'Contact Type': 'ctype',
     'HCP Category': 'category',
     'Payments Made To:': 'payments_to',
     'SAP Number': 'sap_no',
@@ -71,7 +70,7 @@ class DataProcessor:
 
     def _convert_row_to_text(self, df):
         for i, row in df.iterrows():
-            text = 'The following is the information for the health care provider.\n'
+            text = 'The following is the information of the health care provider.\n'
             
             for col in df.columns:
                 if col == 'text':
@@ -82,18 +81,22 @@ class DataProcessor:
                     continue
 
                 val = row[col]
-                if col in ['National Physician ID', 'npi']:
-                    col = 'NPI Number'
+                col = col.replace('HCP ', '')
+                col = col.replace('#', ' Number')
+                col = col.replace('a_', '')
+                col = col.replace('b_', '') 
+                col = col.replace('t_', '') if col.startswith('t_') else col 
+                col = col.replace('_', ' ')
+                col = col.replace('SAP', 'System Applications and Products in Data Processing(SAP)')
+                col = 'description' if col == 'desc' else col 
+                col = 'license' if col == 'lisc' else col 
+                
+                if col in ['National Physician ID', 'npi', 'NPI Number']:
+                    col = 'National Provider Identifier(NPI)' 
                 if pd.isnull(val) or val in ['N/A', '#N/A', 'N/A ', 'n/a (ask Carson Milner)']:
                     continue 
                 if isinstance(val, float):
                    val = int(val)
-
-                col = col.replace('HCP ', '')
-                col = col.replace('#', ' number')
-                col = col.replace('a_', '')
-                col = col.replace('b_', '')
-                col = col.replace('t_', '')
 
                 stc = f'The {col.lower()} of the provider is {val}.\n'
                 if col == 'Payments Made To:':
@@ -114,12 +117,13 @@ class DataProcessor:
             
             if 'all' in csv_file:
                 df['id'] = [f'{node_type}_{i+2}' for i in range(len(df))]
-                df.drop(columns=['Request Type'], inplace=True)
+                df.drop(columns=['Request Type', 'HCC ID'], inplace=True)
             else:
                 df['id'] = [f'{node_type}_{i+3}' for i in range(len(df))]
                 df['franchise'] = [name_str.capitalize() for i in range(len(df))]
                 #df.drop(columns=['Practice Type'], inplace=True)
                 df.replace(0, np.nan, inplace=True) 
+                df.replace('0', np.nan, inplace=True) 
         
         elif 'hcp' in csv_file:
             name_str = csv_file.split('-')[2].split('.')[0]  
@@ -131,10 +135,13 @@ class DataProcessor:
 
             if 'vcheck' in csv_file:
                 rename = PO_VC_COLS
+                df.drop(columns=['t_primary'], inplace=True)
                 for col in ['b_first_name', 'b_last_name']:
                     df[col] = df[col].str.capitalize()
-            else: 
+            else:
                 df.drop(columns=['Prefix', 'Status', 'Contact Type'], inplace=True)
+                if 'Reportable HCP' in df.columns:
+                    df.drop(columns=['Reportable HCP'], inplace=True)   
         
         else: 
             print(f'File {csv_file} not recognized')

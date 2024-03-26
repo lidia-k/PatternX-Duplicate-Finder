@@ -92,13 +92,13 @@ docker run \
 
 Depending on which step you want to implement, you can adjust the run file, and run `python3 run.py penumbra`
 
-**Step 1.** Process and load the csv files to Neo4J.
+**Step 1. Process and load the csv files to Neo4J.**
 
 - Input: The original csv files and the cypher files should reside in /src/data.
 - Usage: `DataProcessor().import_csv_to_neo4j()` in the run file. 
 - Output: Check Neo4j GUI (localhost:7474) to see there is data loaded properly.  
 
-**Step 2.** Validate NPIs and names against the government registry. 
+**Step 2. Validate NPIs and names against the government registry.** 
 
 - Input: NPI numbers and full names from Neo4J
 - Usage: `NPIValidator().validate_NPIs()` in the run file.
@@ -106,9 +106,9 @@ Depending on which step you want to implement, you can adjust the run file, and 
     1) Check if an NPI is 10 digits. 
     2) Check if the number exists and names match against [the gov NPI Registry](https://npiregistry.cms.hhs.gov/search). 
        We're using Levenshtein Distance from FuzzyWuzzy to calculate the differences between names. 
-- Output: `npi_val.txt` file gets created, recording all the results. 
+- Output: `npi_val.txt` file is created, recording all the results. 
 
-**Step 3.** Find obvious duplicates.
+**Step 3. Find obvious duplicates.**
 
 - Input: The data in Neo4J
 - Usage: `DuplicateFinder().find_obvious_duplicate()`
@@ -117,7 +117,8 @@ Depending on which step you want to implement, you can adjust the run file, and 
     2) We define the nodes that have the edge types of fullname_npi, fullname_email, fullname_sap_no, or fullname_qb_id as "obvious duplicates."
 - Output: Edges craeted between matching nodes. 
 
-**Step 4.** Do RAG with a language model. 
+**Step 4. Do RAG with a language model.** 
+
 - Method: 
-    1) When processing and loading the original data to Neo4J in the step 1, the text summary gets generated for each node.
+    1) When processing and loading the original data to Neo4J in the step 1, the text summary is generated for each node.
     2) 

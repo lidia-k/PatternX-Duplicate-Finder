@@ -3,9 +3,9 @@ from utils import auto_config as config
 
 EDGE_TYPES = [
     'fullname',
+    'npi',
+    'email',
     'fullname_npi',
-    'fullname_country',
-    'fullname_specialty',
     'fullname_email',
     'fullname_sap_no',
     'fullname_qb_id'
@@ -19,11 +19,11 @@ class DuplicateFinder:
             config.NEO4J_PASSWORD
         )
 
-    def find_obvious_duplicate(self):
+    def build_duplicate_edges(self):
         driver = self.graph.get_driver()
         with driver.session() as session:
             for type in EDGE_TYPES:
-                if type == 'fullname':
+                if '_' not in type:
                     base_q = f'''
                             MATCH (a),(b)
                             WHERE a.{type} = b.{type} AND id(a) < id(b)
@@ -41,3 +41,14 @@ class DuplicateFinder:
                 result = session.run(base_q)
                 print(f'Found {result.single()[0]} duplicates for {type}')
     
+    def find_obvious_duplicates(self):
+        driver = self.graph.get_driver()
+        with driver.session() as session:
+            for type in EDGE_TYPES:
+                q = f'''
+                    MATCH (a)-[:r1_{type}]-(b)
+                    WHERE id(a) < id(b)
+                    RETURN a, b
+                    '''
+                result = session.run(q).data()
+                print(f'Found {len(result)} duplicates for {type}')
