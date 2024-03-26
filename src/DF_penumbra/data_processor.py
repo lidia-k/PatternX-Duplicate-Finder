@@ -144,7 +144,7 @@ class DataProcessor:
         else: 
             print(f'File {csv_file} not recognized')
         
-        null_val = [0, '0', 'N/A', '#N/A', 'N/A ', 'n/a (ask Carson Milner)']
+        null_val = [0, '0', 'N/A', '#N/A', 'N/A ', 'n/a (ask Carson Milner)', 'unknown']
         for val in null_val:
             df.replace(val, np.nan, inplace=True)
         df = self._convert_row_to_text(df)
