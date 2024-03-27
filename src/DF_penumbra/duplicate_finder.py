@@ -86,6 +86,7 @@ class DuplicateFinder:
                     results = self.vector_graph.similarity_search_with_score(q)
                     for result in results:
                         doc, score = result
-                        fullname = doc.metadata.get('fullname')
-                        npi = doc.metadata.get('npi')
-                        print(score, fullname, npi)
+                        if score > 0.95:
+                            fullname = doc.metadata.get('fullname')
+                            npi = doc.metadata.get('npi')
+                            print(score, fullname, npi)
