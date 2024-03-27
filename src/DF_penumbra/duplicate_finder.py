@@ -81,12 +81,11 @@ class DuplicateFinder:
                 for node in result:
                     node = node['n']
                     q = node['text']
-                    print(node['fullname'])
+                    node_name = node['fullname']
 
                     results = self.vector_graph.similarity_search_with_score(q)
                     for result in results:
                         doc, score = result
-                        if score > 0.95:
-                            fullname = doc.metadata.get('fullname')
-                            npi = doc.metadata.get('npi')
-                            print(score, fullname, npi)
+                        fullname = doc.metadata.get('fullname')
+                        if score > 0.95 and node_name != fullname:
+                            print(f'Search against {node_name}:\n {fullname} {score}')
