@@ -84,7 +84,7 @@ class DuplicateFinder:
                     q = node['text']
                     node_name = node.get('fullname')
                     if not node_name:
-                        print(f'No fullname for {node['id']}')
+                        print(f'No fullname for {node["id"]}')
                         continue 
 
                     results = self.vector_graph.similarity_search_with_score(q)
