@@ -78,10 +78,14 @@ class DuplicateFinder:
                     '''
                 result = session.run(q).data()
                 print(f'Found {len(result)} nodes for {node_type}')
+                
                 for node in result:
                     node = node['n']
                     q = node['text']
-                    node_name = node['fullname']
+                    node_name = node.get('fullname')
+                    if not node_name:
+                        print(f'No fullname for {node['id']}')
+                        continue 
 
                     results = self.vector_graph.similarity_search_with_score(q)
                     for result in results:
