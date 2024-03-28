@@ -1,3 +1,4 @@
+import pandas as pd
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Neo4jVector
 
@@ -72,6 +73,11 @@ class DuplicateFinder:
                 print(f'Found {len(result)} duplicates for {type}')
     
     def similarity_search(self):
+        csv_data = []
+        cols = ['uid', 'fname', 'lname', 'fullname', 'npi', 
+                'country', 'speciality', 'email', 'sap_no', 'qb_id']
+        empty_row = {col: '' for col in cols}
+
         driver = self.graph.get_driver()
         with driver.session() as session:
             for node_type in ['Provider', 'Speaker']:
@@ -83,13 +89,29 @@ class DuplicateFinder:
                     node = node['n']
                     q = node['text']
                     uid = node['uid']
-                    node_name = node['fullname']
+
+                    csv_data.append(empty_row)    
+
+                    node_dict = {}
+                    for col in cols:
+                        node_dict['score'] = ''
+                        node_dict[col] = node.get(col)
+                    csv_data.append(node_dict)
 
                     results = self.vector_graph.similarity_search_with_score(q)
                     for result in results:
                         doc, score = result
-                        doc_id = doc.metadata.get('uid')
-                        fullname = doc.metadata.get('fullname')
+                        metadata = doc.metadata
+                        doc_id = metadata.get('uid')
 
-                        if score > 0.96 and node_name != fullname:
-                            print(f'{uid} {node_name}:\n {doc_id} {fullname} {score}')
+                        if score > 0.96 and uid != doc_id:
+                            doc_dict = {}
+                            for col in cols:
+                                doc_dict['score'] = score
+                                doc_dict[col] = metadata.get(col)
+                            csv_data.append(doc_dict)
+
+            df = pd.DataFrame(csv_data)
+            df.fillna('', inplace=True)
+            df.to_csv('similarity_search.csv', index=False)
+                                
