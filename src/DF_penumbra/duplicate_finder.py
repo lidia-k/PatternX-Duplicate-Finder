@@ -90,14 +90,12 @@ class DuplicateFinder:
                     q = node['text']
                     uid = node['uid']
 
-                    csv_data.append(empty_row)    
-
                     node_dict = {}
                     for col in cols:
                         node_dict['score'] = ''
                         node_dict[col] = node.get(col)
-                    csv_data.append(node_dict)
 
+                    results_list = []
                     results = self.vector_graph.similarity_search_with_score(q)
                     for result in results:
                         doc, score = result
@@ -109,8 +107,13 @@ class DuplicateFinder:
                             for col in cols:
                                 doc_dict['score'] = score
                                 doc_dict[col] = metadata.get(col)
-                            csv_data.append(doc_dict)
-
+                            results_list.append(doc_dict)
+                    
+                    if results_list:
+                        csv_data.append(empty_row)
+                        csv_data.append(node_dict)
+                        csv_data.extend(results_list)
+                            
             df = pd.DataFrame(csv_data)
             df.fillna('', inplace=True)
             df.to_csv('similarity_search.csv', index=False)
