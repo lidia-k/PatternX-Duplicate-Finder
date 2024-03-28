@@ -25,6 +25,6 @@ CREATE (p:Provider {{
     org: row.org,
     org_type: row.org_type,
     qb_id: toInteger(row.qb_id),
-    id: row.id,
+    uid: row.uid,
     text: row.text
 }});

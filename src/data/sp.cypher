@@ -11,6 +11,6 @@ CREATE (s:Speaker {{
     country: row.country,
     email: row.email,
     franchise: row.franchise,
-    id: row.id,
+    uid: row.uid,
     text: row.text
 }});

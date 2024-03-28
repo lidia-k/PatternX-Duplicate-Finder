@@ -76,7 +76,7 @@ class DataProcessor:
             text = 'The following is the information of the health care provider.\n'
             
             for col, val in row.items():
-                if col in ['text', 'id', 'nppes_data']:
+                if col in ['text', 'uid', 'nppes_data']:
                     continue
                 if pd.isnull(val):
                     continue 
@@ -116,7 +116,7 @@ class DataProcessor:
 
         # Add id column based on the node type        
         node_type = f'{file_type}_{name_str[:2]}'
-        df['id'] = [f'{node_type}_{i+2}' for i in range(len(df))]
+        df['uid'] = [f'{node_type}_{i+2}' for i in range(len(df))]
 
         # Drop unnecessary columns
         drop_cols = [
@@ -129,7 +129,7 @@ class DataProcessor:
     
         if 'speaker' in csv_file and not 'all' in csv_file:      
             df = pd.read_csv(csv_file, header=1)
-            df['id'] = [f'{node_type}_{i+3}' for i in range(len(df))]
+            df['uid'] = [f'{node_type}_{i+3}' for i in range(len(df))]
             df['franchise'] = [name_str.capitalize() for i in range(len(df))]
         
         if 'vcheck' in csv_file:
