@@ -69,18 +69,20 @@ class DataProcessor:
         )
 
     def _convert_row_to_text(self, df):
+        """
+        We're converting the row to text so that we can vectorize it and use it for similarity search.
+        """
         for i, row in df.iterrows():
             text = 'The following is the information of the health care provider.\n'
             
-            for col in df.columns:
-                if col == 'text':
+            for col, val in row.items():
+                if col in ['text', 'id', 'nppes_data']:
                     continue
-                if col == 'id':
+                if pd.isnull(val):
                     continue 
-                if col == 'nppes_data':
-                    continue
+                if isinstance(val, float):
+                   val = int(val)
 
-                val = row[col]
                 col = col.replace('HCP ', '')
                 col = col.replace('#', ' Number')
                 col = col.replace('a_', '')
@@ -93,64 +95,60 @@ class DataProcessor:
                 
                 if col in ['National Physician ID', 'npi', 'NPI Number']:
                     col = 'National Provider Identifier(NPI)' 
-                if pd.isnull(val):
-                    continue 
-                if isinstance(val, float):
-                   val = int(val)
-
-                stc = f'The {col.lower()} of the provider is {val}.\n'
                 if col == 'Payments Made To:':
-                    stc = f"The provider's payments are paid to {val}.\n"
-                text += stc
+                    text += f"The provider's payments are paid to {val}.\n"
+                else: 
+                    text += f'The {col.lower()} of the provider is {val}.\n'
 
             df.at[i, 'text'] = text
         return df 
     
     def _update_csv_file(self, csv_file):
-        df = pd.read_csv(csv_file)
+        if 'speaker' not in csv_file and 'hcp' not in csv_file:
+            print(f'Invalid file: {csv_file}')
+            return
 
-        if 'speaker' in csv_file:
-            name_str = csv_file.split('-')[3].split('.')[0]  
-            file_name = f'/data/sp_{name_str}.csv'
-            node_type = f'sp_{name_str[:2]}'
-            rename = SP_COLS
-            
-            if 'all' in csv_file:
-                df['id'] = [f'{node_type}_{i+2}' for i in range(len(df))]
-                df.drop(columns=['Request Type', 'HCC ID'], inplace=True)
-            else:
-                df['id'] = [f'{node_type}_{i+3}' for i in range(len(df))]
-                df['franchise'] = [name_str.capitalize() for i in range(len(df))]
-                #df.drop(columns=['Practice Type'], inplace=True)
-        
-        elif 'hcp' in csv_file:
-            name_str = csv_file.split('-')[2].split('.')[0]  
-            file_name = f'/data/po_{name_str}.csv'
-            node_type = f'po_{name_str[:2]}'
-            df = df.loc[:, ~df.columns.str.contains('^Unnamed', case=False)]
-            df['id'] = [f'{node_type}_{i+2}' for i in range(len(df))]
-            rename = PO_COLS
+        df = pd.read_csv(csv_file) 
+        file_type = 'sp' if 'speaker' in csv_file else 'po'
+        name_str = csv_file.split('-')[3 if file_type == 'sp' else 2].split('.')[0]
+        file_name = f'/data/{file_type}_{name_str}.csv'
+        rename = SP_COLS if file_type == 'sp' else PO_COLS
 
-            if 'vcheck' in csv_file:
-                rename = PO_VC_COLS
-                df.drop(columns=['t_primary'], inplace=True)
-                for col in ['b_first_name', 'b_last_name']:
-                    df[col] = df[col].str.capitalize()
-            else:
-                df.drop(columns=['Prefix', 'Status', 'Contact Type'], inplace=True)
-                if 'Reportable HCP' in df.columns:
-                    df.drop(columns=['Reportable HCP'], inplace=True)   
+        # Add id column based on the node type        
+        node_type = f'{file_type}_{name_str[:2]}'
+        df['id'] = [f'{node_type}_{i+2}' for i in range(len(df))]
+
+        # Drop unnecessary columns
+        drop_cols = [
+            'Prefix', 'Status', 'Contact Type', 'Reportable HCP', 
+            'Request Type', 'HCC ID', 't_primary', 'Practice Type'
+        ]
+        for col in drop_cols:
+            if col in df.columns:
+                df.drop(columns=[col], inplace=True)
+    
+        if 'speaker' in csv_file and not 'all' in csv_file:      
+            df = pd.read_csv(csv_file, header=1)
+            df['id'] = [f'{node_type}_{i+3}' for i in range(len(df))]
+            df['franchise'] = [name_str.capitalize() for i in range(len(df))]
         
-        else: 
-            print(f'File {csv_file} not recognized')
-        
+        if 'vcheck' in csv_file:
+            rename = PO_VC_COLS
+            for col in ['b_first_name', 'b_last_name']:
+                df[col] = df[col].str.capitalize()
+
+        # Replace null values with np.nan
         null_val = [0, '0', 'N/A', '#N/A', 'N/A ', 'n/a (ask Carson Milner)', 'unknown']
-        for val in null_val:
-            df.replace(val, np.nan, inplace=True)
+        df.replace(null_val, np.nan, inplace=True)
+        df = df.loc[:, ~df.columns.str.contains('^Unnamed', case=False)]
+
+        # Convert row to text
         df = self._convert_row_to_text(df)
+        # Renmae columns and convert to lowercase
         df = df.rename(columns=rename)
         df.columns = [col.lower() for col in df.columns]
 
+        # Convert columns to int
         int_cols = ['npi', 'qb_id', 'sap_no', 'license']
         for col in int_cols:
             if col in df.columns:
@@ -162,13 +160,9 @@ class DataProcessor:
 
     def _load_data_from_cypher(self, file_path):
         if 'sp' in file_path:
-            cypher_file = './data/sp.cypher'
-            if 'all' in file_path:
-                cypher_file = './data/sp_all.cypher'
+            cypher_file = './data/sp_all.cypher' if 'all' in file_path else './data/sp.cypher'
         else: 
-            cypher_file = './data/po.cypher'
-            if 'vcheck' in file_path:
-                cypher_file = './data/po_vcheck.cypher'
+            cypher_file = './data/po_vcheck.cypher' if 'vcheck' in file_path else './data/po.cypher'
 
         with open(cypher_file, 'r') as f:
             query = f.read()

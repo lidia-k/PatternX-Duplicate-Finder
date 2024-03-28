@@ -35,6 +35,9 @@ class DuplicateFinder:
             )
 
     def build_duplicate_edges(self):
+        """
+        If two nodes have the same property, create an edge between them.
+        """
         driver = self.graph.get_driver()
         with driver.session() as session:
             for type in EDGE_TYPES:
@@ -56,7 +59,7 @@ class DuplicateFinder:
                 result = session.run(base_q)
                 print(f'Found {result.single()[0]} duplicates for {type}')
     
-    def find_obvious_duplicates(self):
+    def lookup_obvious_duplicates(self):
         driver = self.graph.get_driver()
         with driver.session() as session:
             for type in EDGE_TYPES:
@@ -72,24 +75,19 @@ class DuplicateFinder:
         driver = self.graph.get_driver()
         with driver.session() as session:
             for node_type in ['Provider', 'Speaker']:
-                q = f'''
-                    MATCH (n:{node_type})
-                    RETURN n
-                    '''
+                q = f'MATCH (n:{node_type}) RETURN n'
                 result = session.run(q).data()
                 print(f'Found {len(result)} nodes for {node_type}')
                 
                 for node in result:
                     node = node['n']
                     q = node['text']
-                    node_name = node.get('fullname')
-                    if not node_name:
-                        print(f'No fullname for {node["id"]}')
-                        continue 
+                    node_name = node['fullname']
 
                     results = self.vector_graph.similarity_search_with_score(q)
                     for result in results:
                         doc, score = result
                         fullname = doc.metadata.get('fullname')
-                        if score > 0.95 and node_name != fullname:
+
+                        if score > 0.96 and node_name != fullname:
                             print(f'Search against {node_name}:\n {fullname} {score}')
