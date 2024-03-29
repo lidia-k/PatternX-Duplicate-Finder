@@ -116,5 +116,5 @@ class VectorGraph:
             embedding_node_property='embedding'
         )
 
-    def similarity_search_with_score(self, text):
-        return self.vector_graph.similarity_search_with_score(text)
+    def similarity_search_with_score(self, text, k=4):
+        return self.vector_graph.similarity_search_with_score(query=text, k=k)

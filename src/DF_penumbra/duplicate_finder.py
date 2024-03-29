@@ -23,6 +23,7 @@ class DuplicateFinder:
             config.NEO4J_PASSWORD
         )
         self.distinct_pairs = set()
+        self.uids = []
 
     def _build_o_dup_edges(self, session):
         """
@@ -167,6 +168,10 @@ class DuplicateFinder:
             metadata = doc.metadata
             doc_id = metadata.get('uid')
 
+            # If the node is not a master node or an unconnected node, skip it
+            if doc_id not in self.uids:
+                continue
+
             pair = tuple(sorted([uid, doc_id]))
 
             # Return the nodes that have a score greater than 0.96, aren't themselves, and are distinct pairs.
@@ -189,6 +194,8 @@ class DuplicateFinder:
 
         # Fetch master nodes and nodes that are not connected to master nodes
         result = self._fetch_nodes()
+        self.uids = [record[0]['uid'] for record in result]
+
         for record in result:
             node = record[0]
             uid = node['uid']
@@ -200,7 +207,7 @@ class DuplicateFinder:
 
             results_list = []
             # Do similarity search and process the results
-            similar_nodes = vector_g.similarity_search_with_score(text)
+            similar_nodes = vector_g.similarity_search_with_score(text, k=5)
             self._process_similar_nodes(similar_nodes, uid, results_list)
             
             # If there are similar nodes, add them to the csv
