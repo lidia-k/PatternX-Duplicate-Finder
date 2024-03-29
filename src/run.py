@@ -30,9 +30,14 @@ if __name__ == '__main__':
     
     elif args.project == choices[1]:
         print(f'Running it for {choices[1]}')
-        #DataProcessor().import_csv_to_neo4j()
+        
+        dp = DataProcessor()
+        #dp.import_csv_to_neo4j()
+        #dp.add_text_props()
+        
         #NPIValidator().validate_NPIs()
+        
         df = DuplicateFinder()
-        #df.build_duplicate_edges()
-        #df.lookup_obvious_duplicates()
+        #df.process_o_dups() # Obvious duplicates
+        #df.lookup_o_dups()
         df.similarity_search()

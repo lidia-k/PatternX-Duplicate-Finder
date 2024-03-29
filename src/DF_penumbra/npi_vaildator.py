@@ -14,7 +14,7 @@ class NPIValidator:
         )
         self.api_url = "https://npiregistry.cms.hhs.gov/api/"
 
-    def check_against_gov_registry(self, npi):
+    def _check_against_gov_registry(self, npi):
         params = {"number": npi, "version": 2.1}
         try:
             response = requests.get(self.api_url, params=params)
@@ -57,7 +57,7 @@ class NPIValidator:
                         output_f.write(out + '\n')
                         continue
 
-                    api_results = self.check_against_gov_registry(npi)
+                    api_results = self._check_against_gov_registry(npi)
                     if not api_results:
                         out = f'No data returned for NPI {npi}, {id}'
                         print(out)

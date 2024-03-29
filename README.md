@@ -76,7 +76,7 @@ The code also creates `db_info.json` that maps all the node types and edge types
 
 ### Run Neo4J
 
-You first need to pull a Neo4j docker image and run a docker container for Neo4j.
+You first need to pull a Neo4j docker image and run a docker container for Neo4j on /src directory.
 ```
 docker pull neo4j
 
@@ -85,6 +85,7 @@ docker run \
     -p 7474:7474 -p 7687:7687 \
     -v $PWD/data:/var/lib/neo4j/import/data \
     -e NEO4J_AUTH=neo4j/password \
+    --env NEO4J_PLUGINS='["graph-data-science"]' \
     -d neo4j:latest
 ```
 
@@ -95,8 +96,10 @@ Depending on which step you want to implement, you can adjust the run file, and 
 **Step 1. Process and load the csv files to Neo4J.**
 
 - Input: The original csv files and the cypher files should reside in /src/data.
-- Usage: `DataProcessor().import_csv_to_neo4j()` in the run file. 
+- Usage: `DataProcessor().import_csv_to_neo4j()` and `DataProcessor().add_text_props` in the run file. 
 - Output: Check Neo4j GUI (localhost:7474) to see there is data loaded properly.  
+There should be a text property for all the nodes that summarize the properties.
+The text properties will be used for similary search, by using a language model.
 
 **Step 2. Validate NPIs and names against the government registry.** 
 
@@ -108,17 +111,19 @@ Depending on which step you want to implement, you can adjust the run file, and 
        We're using Levenshtein Distance from FuzzyWuzzy to calculate the differences between names. 
 - Output: `npi_val.txt` file is created, recording all the results. 
 
-**Step 3. Find obvious duplicates.**
+**Step 3. Find obvious duplicates (aka round 1)**
 
 - Input: The data in Neo4J
-- Usage: `DuplicateFinder().find_obvious_duplicate()`
+- Usage: `DuplicateFinder().process_o_dups()`
 - Method:
-    1) Create an edge between two nodes if their values of a given property are exact matches. The edge types we create are: fullname, fullname_npi, fullname_country, fullname_speciality, fullname_email, fullname_sap_no, fullname_qb_id.
-    2) We define the nodes that have the edge types of fullname_npi, fullname_email, fullname_sap_no, or fullname_qb_id as "obvious duplicates."
-- Output: Edges craeted between matching nodes. 
+    1) Create an edge between two nodes if their properties are exact matches. The edge types we create are: npi, fullname_email, fullname_sap_no, and fullname_qb_id. We define those nodes "obvious duplicates."
+    2) For each cluster of connected nodes, we create a master node that contains all the properties of the connected nodes. For the second round of duplicate detection, we will only use this master node from each cluster. 
+- Output: Edges created between obvious duplicate nodes, and master nodes for each cluster.  
 
-**Step 4. Do RAG with a language model.** 
+**Step 4. Do RAG with a language model. (aka round 2)** 
 
+- Usage: `DuplicateFinder().similarity_search()`
 - Method: 
-    1) When processing and loading the original data to Neo4J in the step 1, the text summary is generated for each node.
-    2) 
+    1) Generate embeddings for text properties of all the master nodes and other nodes that aren't connected by using a setence transformer. 
+    2) Do similarity search by using langchain provided Neo4J vector store.
+- Output: `similarity_search.csv` gets created and contains the results of similar nodes above the score 0.96 

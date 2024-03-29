@@ -1,19 +1,19 @@
 import pandas as pd
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Neo4jVector
+from collections import defaultdict
 
-from dao.NEO4J_Graph import Graph
+from dao.NEO4J_Graph import Graph, VectorGraph
+from DF_penumbra.data_processor import DataProcessor
 from utils import auto_config as config
 
 EDGE_TYPES = [
-    'fullname',
     'npi',
-    'email',
-    'fullname_npi',
     'fullname_email',
     'fullname_sap_no',
     'fullname_qb_id'
 ]
+
+COLS_TO_USE = ['uid', 'fname', 'lname', 'fullname', 'npi', 
+               'country', 'speciality', 'email', 'sap_no', 'qb_id']
 
 class DuplicateFinder:
     def __init__(self):
@@ -22,45 +22,121 @@ class DuplicateFinder:
             config.NEO4J_USER,
             config.NEO4J_PASSWORD
         )
-        self.embeddings = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2')
-        for node in ['Provider', 'Speaker']:
-            self.vector_graph = Neo4jVector.from_existing_graph(
-                embedding=self.embeddings,
-                url=config.NEO4J_URL,
-                username=config.NEO4J_USER,
-                password=config.NEO4J_PASSWORD,
-                index_name='penumbra_index',
-                node_label=node,
-                text_node_properties=['text'],
-                embedding_node_property='embedding'
-            )
+        self.distinct_pairs = set()
 
-    def build_duplicate_edges(self):
+    def _build_o_dup_edges(self, session):
         """
         If two nodes have the same property, create an edge between them.
+        We call these obvious duplicates.
         """
+        for type in EDGE_TYPES:
+            if type == 'npi':
+                q = f'''
+                    MATCH (a),(b)
+                    WHERE a.{type} = b.{type} AND id(a) < id(b)
+                    MERGE (a)-[:r1_{type}]-(b)
+                    RETURN count(*)
+                    '''
+            else: 
+                p1, p2 = type.split('_', 1)
+                q = f'''
+                    MATCH (a),(b)
+                    WHERE a.{p1} = b.{p1} AND a.{p2} = b.{p2} AND id(a) < id(b)
+                    MERGE (a)-[:r1_{type}]-(b)
+                    RETURN count(*)
+                    '''
+            result = session.run(q)
+            print(f'Build {result.single()[0]} edges for {type}')
+    
+    def _create_gds_graph(self, session):
+        """
+        If the graph exists, drop it and create a new one.
+        GDS graph is used to find connected clusters.
+        """
+        check_q = "CALL gds.graph.exists('penumbra') YIELD exists RETURN exists"
+        result = session.run(check_q).data()
+        
+        if result[0]['exists']:
+            drop_q = "CALL gds.graph.drop('penumbra')"
+            session.run(drop_q)
+        
+        build_q = "CALL gds.graph.project('penumbra', '*', '*')"
+        session.run(build_q)
+    
+    def _fetch_clustsers(self, session):
+        stream_q = '''
+        CALL gds.wcc.stream('penumbra') YIELD nodeId, componentId 
+        RETURN gds.util.asNode(nodeId).uid AS name, componentId 
+        ORDER BY componentId, name
+        '''
+        result = session.run(stream_q).data()
+        
+        clusters = defaultdict(list)
+        for record in result:
+            clusters[record['componentId']].append(record['name'])
+        
+        return clusters
+    
+    def _create_m_node_and_relationship(self, session, uids, i):
+        # Fetch all the nodes in the cluster 
+        q = '''
+        MATCH (n)
+        WHERE n.uid IN $uids
+        RETURN n
+        '''
+        result = session.run(q, uids=uids).data()
+
+        # Aggregate the properties of the nodes
+        master_props = {}
+        master_props['uid'] = f'r1_m_{i}'
+        for node in result:
+            for key, value in node['n'].items():
+                if key in ['uid', 'text', 'embedding']:
+                    continue
+                if not master_props.get(key):
+                    master_props[key] = value
+                elif master_props[key] != value:
+                    master_props[key] = f'{master_props[key]}, and {value}'
+
+        # Create a master node with the aggregated properties
+        create_q = '''
+        CREATE (m:Master $master_prop)
+        RETURN m
+        '''
+        m_node = session.run(create_q, master_prop=master_props).single()[0]
+
+        # Set the text property for the master node
+        text, q = DataProcessor._build_text(m_node)
+        session.run(q, uid=m_node['uid'], text=text)
+
+        # Create a relationship between the master node and all the nodes in the cluster
+        for id in uids:
+            q = '''
+            MATCH (m:Master), (n) WHERE m.uid = $m_uid AND n.uid = $n_uid
+            MERGE (m)-[:r1_master]-(n)
+            '''
+            session.run(q, m_uid=m_node['uid'], n_uid=id)
+
+    def _create_r1_master_nodes(self, session):
+        self._create_gds_graph(session)
+        clusters = self._fetch_clustsers(session)
+        print(f'Found {len(clusters)} clusters')
+
+        i = 1
+        for uids in clusters.values():
+            # If the cluster has more than one node, create a master node
+            if len(uids) > 1:
+                self._create_m_node_and_relationship(session, uids, i)
+                i += 1
+        print(f'Created {i-1} master nodes')
+
+    def process_o_dups(self):
         driver = self.graph.get_driver()
         with driver.session() as session:
-            for type in EDGE_TYPES:
-                if '_' not in type:
-                    base_q = f'''
-                            MATCH (a),(b)
-                            WHERE a.{type} = b.{type} AND id(a) < id(b)
-                            MERGE (a)-[:r1_{type}]-(b)
-                            RETURN count(*)
-                            '''
-                else: 
-                    p1, p2 = type.split('_', 1)
-                    base_q = f'''
-                            MATCH (a),(b)
-                            WHERE a.{p1} = b.{p1} AND a.{p2} = b.{p2} AND id(a) < id(b)
-                            MERGE (a)-[:r1_{type}]-(b)
-                            RETURN count(*)
-                            '''
-                result = session.run(base_q)
-                print(f'Found {result.single()[0]} duplicates for {type}')
-    
-    def lookup_obvious_duplicates(self):
+            self._build_o_dup_edges(session)
+            self._create_r1_master_nodes(session)
+
+    def lookup_o_dups(self):
         driver = self.graph.get_driver()
         with driver.session() as session:
             for type in EDGE_TYPES:
@@ -72,49 +148,69 @@ class DuplicateFinder:
                 result = session.run(q).data()
                 print(f'Found {len(result)} duplicates for {type}')
     
+    def _fetch_nodes(self):
+        q = '''
+        MATCH (master:Master)-[:r1_master]-(n)
+        RETURN master AS node
+
+        UNION
+
+        MATCH (n)
+        WHERE NOT (n)-[:r1_master]-() AND NOT (n:Master)
+        RETURN n AS node
+        '''
+        return self.graph.cypher_transaction(q)
+
+    def _process_similar_nodes(self, similar_nodes, uid, results_list):
+        for s_node in similar_nodes:
+            doc, score = s_node
+            metadata = doc.metadata
+            doc_id = metadata.get('uid')
+
+            pair = tuple(sorted([uid, doc_id]))
+
+            # Return the nodes that have a score greater than 0.96, aren't themselves, and are distinct pairs.
+            if score > 0.96 and uid != doc_id and pair not in self.distinct_pairs:
+                self.distinct_pairs.add(pair)
+                doc_dict = {}
+                doc_dict = {'score': score}
+                doc_dict.update({col: metadata.get(col, '') for col in COLS_TO_USE})
+                results_list.append(doc_dict)
+        
+        return results_list
+
     def similarity_search(self):
+        # Generate embeddings for the text properties of all nodes
+        for node in ['Provider', 'Speaker']:
+            vector_g = VectorGraph(node)
+
         csv_data = []
-        cols = ['uid', 'fname', 'lname', 'fullname', 'npi', 
-                'country', 'speciality', 'email', 'sap_no', 'qb_id']
-        empty_row = {col: '' for col in cols}
+        empty_row = {col: '' for col in COLS_TO_USE}
 
-        driver = self.graph.get_driver()
-        with driver.session() as session:
-            for node_type in ['Provider', 'Speaker']:
-                q = f'MATCH (n:{node_type}) RETURN n'
-                result = session.run(q).data()
-                print(f'Found {len(result)} nodes for {node_type}')
-                
-                for node in result:
-                    node = node['n']
-                    q = node['text']
-                    uid = node['uid']
+        # Fetch master nodes and nodes that are not connected to master nodes
+        result = self._fetch_nodes()
+        for record in result:
+            node = record[0]
+            uid = node['uid']
+            text = node['text']
+            
+            # The original node is the first row in the csv
+            node_dict = {col: node.get(col, '') for col in COLS_TO_USE}
+            node_dict['score'] = ''
 
-                    node_dict = {}
-                    for col in cols:
-                        node_dict['score'] = ''
-                        node_dict[col] = node.get(col)
-
-                    results_list = []
-                    results = self.vector_graph.similarity_search_with_score(q)
-                    for result in results:
-                        doc, score = result
-                        metadata = doc.metadata
-                        doc_id = metadata.get('uid')
-
-                        if score > 0.96 and uid != doc_id:
-                            doc_dict = {}
-                            for col in cols:
-                                doc_dict['score'] = score
-                                doc_dict[col] = metadata.get(col)
-                            results_list.append(doc_dict)
-                    
-                    if results_list:
-                        csv_data.append(empty_row)
-                        csv_data.append(node_dict)
-                        csv_data.extend(results_list)
+            results_list = []
+            # Do similarity search and process the results
+            similar_nodes = vector_g.similarity_search_with_score(text)
+            self._process_similar_nodes(similar_nodes, uid, results_list)
+            
+            # If there are similar nodes, add them to the csv
+            if results_list:
+                csv_data.append(empty_row)
+                csv_data.append(node_dict)
+                csv_data.extend(results_list)
                             
-            df = pd.DataFrame(csv_data)
-            df.fillna('', inplace=True)
-            df.to_csv('similarity_search.csv', index=False)
+        # Write the results to a csv file                    
+        df = pd.DataFrame(csv_data)
+        df.fillna('', inplace=True)
+        df.to_csv('similarity_search.csv', index=False)
                                 

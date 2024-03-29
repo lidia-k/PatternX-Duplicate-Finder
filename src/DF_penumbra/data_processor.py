@@ -1,11 +1,9 @@
 import glob
 import numpy as np
+import os
 import pandas as pd
 import platform
-import requests
 import subprocess
-
-from fuzzywuzzy import fuzz
 
 from dao.NEO4J_Graph import Graph
 from utils import auto_config as config
@@ -68,41 +66,6 @@ class DataProcessor:
             config.NEO4J_PASSWORD
         )
 
-    def _convert_row_to_text(self, df):
-        """
-        We're converting the row to text so that we can vectorize it and use it for similarity search.
-        """
-        for i, row in df.iterrows():
-            text = 'The following is the information of the health care provider.\n'
-            
-            for col, val in row.items():
-                if col in ['text', 'uid', 'nppes_data']:
-                    continue
-                if pd.isnull(val):
-                    continue 
-                if isinstance(val, float):
-                   val = int(val)
-
-                col = col.replace('HCP ', '')
-                col = col.replace('#', ' Number')
-                col = col.replace('a_', '')
-                col = col.replace('b_', '') 
-                col = col.replace('t_', '') if col.startswith('t_') else col 
-                col = col.replace('_', ' ')
-                col = col.replace('SAP', 'System Applications and Products in Data Processing(SAP)')
-                col = 'description' if col == 'desc' else col 
-                col = 'license' if col == 'lisc' else col 
-                
-                if col in ['National Physician ID', 'npi', 'NPI Number']:
-                    col = 'National Provider Identifier(NPI)' 
-                if col == 'Payments Made To:':
-                    text += f"The provider's payments are paid to {val}.\n"
-                else: 
-                    text += f'The {col.lower()} of the provider is {val}.\n'
-
-            df.at[i, 'text'] = text
-        return df 
-    
     def _update_csv_file(self, csv_file):
         if 'speaker' not in csv_file and 'hcp' not in csv_file:
             print(f'Invalid file: {csv_file}')
@@ -114,7 +77,7 @@ class DataProcessor:
         file_name = f'/data/{file_type}_{name_str}.csv'
         rename = SP_COLS if file_type == 'sp' else PO_COLS
 
-        # Add id column based on the node type        
+        # Add uid column based on the node type        
         node_type = f'{file_type}_{name_str[:2]}'
         df['uid'] = [f'{node_type}_{i+2}' for i in range(len(df))]
 
@@ -142,8 +105,6 @@ class DataProcessor:
         df.replace(null_val, np.nan, inplace=True)
         df = df.loc[:, ~df.columns.str.contains('^Unnamed', case=False)]
 
-        # Convert row to text
-        df = self._convert_row_to_text(df)
         # Renmae columns and convert to lowercase
         df = df.rename(columns=rename)
         df.columns = [col.lower() for col in df.columns]
@@ -179,8 +140,66 @@ class DataProcessor:
             cmd = "docker exec neo4j /bin/bash -c 'chown -R 777:777 import/data && chmod -R 777 import/data'"
             subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
 
-        data_bundles = glob.glob('./data/*.csv')
+        # Remove existing data files
+        data_dir = './data'
+        f_types = ['sp_*.csv', 'po_*.csv']
+        for f_type in f_types:
+            for f in glob.glob(f'{data_dir}/{f_type}'):
+                os.remove(f)
+
+        # Update csv files and load data to Neo4j
+        data_bundles = glob.glob(f'{data_dir}/*.csv')
         for f in data_bundles:
             fname = self._update_csv_file(f)
             self._load_data_from_cypher(fname)
     
+    @classmethod
+    def _build_text(self, node):
+        text = 'The following is the information of the health care provider.\n'
+        for prop, val in node.items():
+            if prop in [
+                'uid', 'text', 'embedding', 'nppes_data', 'fname', 'lname', 
+                'payments_to', 'license', 'lic_state', 'title', 'taxonomy', 
+                'tax_code', 'addr1', 'addr2', 'qb_id', 'b_credential', 'b_middle_name',
+                'b_last_updated', 'b_status', 'a_country_code', 't_code',
+                't_primary', 'franchise', 'country2', 'state2'
+            ]:
+                continue
+            if val is None:
+                continue 
+
+            prop = prop.replace('a_', '')
+            prop = prop.replace('b_', '') 
+            prop = prop.replace('t_', '') if prop.startswith('t_') else prop 
+            prop = prop.replace('_', ' ') if '_' in prop else prop
+            prop = prop.replace('sap', 'System Applications and Products in Data Processing(SAP)')
+            prop = 'description' if prop == 'desc' else prop 
+            prop = 'license' if prop == 'lisc' else prop 
+            prop = 'National Provider Identifier(NPI)' if prop == 'npi' else prop
+            prop = f'payment {prop}' if prop == 'currency' else prop
+            prop = prop.replace('no', 'number')
+            prop = prop.replace('fc', 'focus')
+            prop = prop.replace('org', 'organization')
+
+            text += f'The {prop.lower()} of the provider is {val}.\n'
+        
+        q = '''
+            MATCH (n) WHERE n.uid = $uid
+            SET n.text = $text
+            '''
+        return text, q
+
+    def add_text_props(self):
+        """
+        Add text property to all nodes in the graph.
+        We will vectorize the text property for similarity search.
+        """
+        driver = self.graph.get_driver()
+        with driver.session() as session:
+            q = 'MATCH (n) RETURN n'
+            result = session.run(q).data()
+            for node in result:
+                node = node['n']
+                text, update_q = self._build_text(node)
+                session.run(update_q, uid=node['uid'], text=text)
+        

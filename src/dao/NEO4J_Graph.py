@@ -1,6 +1,9 @@
 import time
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Neo4jVector
 from neo4j import GraphDatabase
 
+from utils import auto_config as config
 
 class timer:
     def __init__(self):
@@ -55,7 +58,6 @@ class Graph:
         resource_count, runtime = self.query(cypher)
         return resource_count
 
-
     # Standard metrics for counting nodes and relationships
     def database_metrics(self):
         node_count = 0
@@ -94,3 +96,25 @@ class Graph:
         except Exception as e:
             print('Is the neo4j docker container running?')
             return e
+
+
+class VectorGraph:
+    def __init__(self, node_label, model='sentence-transformers/all-MiniLM-L6-v2'):
+        self.embedding = HuggingFaceEmbeddings(model_name=model)
+        self.node_label = node_label
+        self.vector_graph = self.initialize_vector_graph()
+
+    def initialize_vector_graph(self):
+        return Neo4jVector.from_existing_graph(
+            embedding=self.embedding,
+            url=config.NEO4J_URL,
+            username=config.NEO4J_USER,
+            password=config.NEO4J_PASSWORD,
+            index_name='penumbra_index',
+            node_label=self.node_label,
+            text_node_properties=['text'],
+            embedding_node_property='embedding'
+        )
+
+    def similarity_search_with_score(self, text):
+        return self.vector_graph.similarity_search_with_score(text)
