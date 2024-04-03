@@ -97,7 +97,7 @@ class DuplicateFinder:
                 if not master_props.get(key):
                     master_props[key] = value
                 elif master_props[key] != value:
-                    master_props[key] = f'{master_props[key]}, and {value}'
+                    master_props[key] = f'{master_props[key]}, or {value}'
 
         # Create a master node with the aggregated properties
         create_q = '''
@@ -186,7 +186,7 @@ class DuplicateFinder:
 
     def similarity_search(self):
         # Generate embeddings for the text properties of all nodes
-        for node in ['Provider', 'Speaker']:
+        for node in ['Provider', 'Speaker', 'Master']:
             vector_g = VectorGraph(node)
 
         csv_data = []
