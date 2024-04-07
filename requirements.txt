@@ -12,3 +12,4 @@ fuzzywuzzy==0.18.0
 torchtext==0.10.0
 torch==1.9
 xgboost==2.0.3
+PyQt5
