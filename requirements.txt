@@ -112,3 +112,6 @@ wcwidth==0.2.13
 weasel==0.3.4
 xgboost==2.0.3
 zipp==3.18.1
+PyQt5==5.15.10
+langchain==0.1.15
+neo4j-driver==5.19.0

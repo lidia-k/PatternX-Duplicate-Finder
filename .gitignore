@@ -9,3 +9,4 @@ synthea*/
 .env
 *.csv
 .DS_Store
+.vscode/settings.json

@@ -9,10 +9,10 @@ if __name__ == '__main__':
     choices = ['adventureworks', 'penumbra']
 
     parser = argparse.ArgumentParser(description='Run different functions based on input parameters.')
-    parser.add_argument('project', choices=choices, type=str, help='The project to run')
+    parser.add_argument('--project', choices=choices, type=str, help='The project to run')
     args = parser.parse_args()
 
-    if args.project == choices[0]:
+    if args.project == 'adventureworks':
         print(f'Running it for {choices[0]}')
 
         TABLE_NAME = 'production.product'
@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
         duplicate_finder.extract_distance_between_pairs([765, 10001, 10002], prompt=size_prompt, English=True)
     
-    elif args.project == choices[1]:
+    elif args.project == 'penumbra':
         print(f'Running it for {choices[1]}')
         
         dp = DataProcessor()
