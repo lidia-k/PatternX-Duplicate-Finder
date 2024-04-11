@@ -1,9 +1,11 @@
-# Dulicate Finder
+# Duplicate Finder
 
 The repo holds duplicate finders built for different datasets. 
 - DF_adventureworks is for the experiment run on MS' adventureworks data. 
 - GNN_on_FHIR is for the experiment run on the Synthea data. 
 - DF_penumbra is for the duplication detection carried out on the client data. 
+
+run: `python3 run.py --help` for more details of commands. 
 
 ## Adventure Works
 
