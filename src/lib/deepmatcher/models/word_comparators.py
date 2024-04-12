@@ -110,7 +110,7 @@ class Attention(dm.WordComparator):
               comparison_merge='concat',
               comparison_network='2-layer-highway',
               input_size=None):
-        self.hidden_size = hidden_size if hidden_size is not None else input_size[0]
+        hidden_size = hidden_size if hidden_size is not None else input_size[0]
 
         self.alignment_networks = nn.ModuleList()
         for head in range(heads):

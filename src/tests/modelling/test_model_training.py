@@ -17,6 +17,13 @@ def test_PenumbraModelTrainer():
         items_in_B=[df_dict['(800) No SAP Number and Export '], df_dict['(340) US HCPs'], df_dict['(320) OUS HCPs'], df_dict['(20) France HCPs']]
     )
 
+    def activate_debugging(A, B):
+        A = A[A['Full Name'].isin(["Chirag Gandhi", "Chirag Gandi", "Aaron Bress", "John McGrath"])]
+        B = B[B['Full Name'].isin(["Chirag Gandhi", "Chirag Gandi", "Aaron Bress", "Abdullah Shaikh"])]
+
+        return A, B 
+    # A, B = activate_debugging(A, B)
+
     p =  PenumbraDataPreprocessor()
     A, B = p.preprocess_data(data = (A, B) ) 
 

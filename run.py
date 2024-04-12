@@ -1,6 +1,10 @@
 import argparse
 
 #from DF_adventureworks.duplicate_finder import DuplicateFinder
+from src.data.data_collection import PenumbraDataCollector
+from src.modelling.model_trainining import PenumbraModelTrainer
+from src.preprocessing.data_preprocessing import PenumbraDataPreprocessor
+from src.preprocessing.feature_engineering import PenumbraFeatureEnginner
 from src.DF_penumbra.data_processor import DataProcessor
 from src.DF_penumbra.npi_vaildator import NPIValidator
 from src.DF_penumbra.duplicate_finder import DuplicateFinder
@@ -31,6 +35,27 @@ if __name__ == '__main__':
         duplicate_finder.extract_distance_between_pairs([765, 10001, 10002], prompt=size_prompt, English=True)
     elif args.project == 'penumbra' and args.task == 'train':
         print("training...")
+        data_dir = '/Users/tu/SourceCode/notebooks/data/'
+        file = "hcp-manz-sn.xlsx"
+        dc = PenumbraDataCollector(data_dir, file)
+        dc.collect_data()
+
+        df_dict = dc.df_dict
+
+        A, B = dc.build_data_pair(
+            items_in_A=[df_dict['(1000) Contacts']], 
+            items_in_B=[df_dict['(800) No SAP Number and Export '], df_dict['(340) US HCPs'], df_dict['(320) OUS HCPs'], df_dict['(20) France HCPs']]
+        )
+
+        p =  PenumbraDataPreprocessor()
+        A, B = p.preprocess_data(data = (A, B) ) 
+
+        fe = PenumbraFeatureEnginner("blocking")
+        df = fe.execute_strategy(A, B, fe.blocking_config)
+        
+        trainer = PenumbraModelTrainer()
+        model = trainer.train_model(df)
+        
     elif args.project == 'penumbra' and args.task == 'online_train':
         print("online training...")
     elif args.project == 'penumbra' and args.task == 'predict':
