@@ -3,7 +3,7 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Neo4jVector
 from neo4j import GraphDatabase
 
-from utils import auto_config as config
+from src.utils import auto_config as config
 
 class timer:
     def __init__(self):

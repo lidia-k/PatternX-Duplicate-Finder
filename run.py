@@ -1,15 +1,17 @@
 import argparse
 
 #from DF_adventureworks.duplicate_finder import DuplicateFinder
-from DF_penumbra.data_processor import DataProcessor
-from DF_penumbra.npi_vaildator import NPIValidator
-from DF_penumbra.duplicate_finder import DuplicateFinder
+from src.DF_penumbra.data_processor import DataProcessor
+from src.DF_penumbra.npi_vaildator import NPIValidator
+from src.DF_penumbra.duplicate_finder import DuplicateFinder
 
 if __name__ == '__main__':
     choices = ['adventureworks', 'penumbra']
 
     parser = argparse.ArgumentParser(description='Run different functions based on input parameters.')
     parser.add_argument('--project', choices=choices, type=str, help='The project to run')
+    parser.add_argument("--task", type=str, default=None, help="task name:{train, predict, online_train}",  metavar='')
+
     args = parser.parse_args()
 
     if args.project == 'adventureworks':
@@ -27,7 +29,12 @@ if __name__ == '__main__':
         example2 = [765, 766, 768]
 
         duplicate_finder.extract_distance_between_pairs([765, 10001, 10002], prompt=size_prompt, English=True)
-    
+    elif args.project == 'penumbra' and args.task == 'train':
+        print("training...")
+    elif args.project == 'penumbra' and args.task == 'online_train':
+        print("online training...")
+    elif args.project == 'penumbra' and args.task == 'predict':
+        print("predict...")
     elif args.project == 'penumbra':
         print(f'Running it for {choices[1]}')
         
