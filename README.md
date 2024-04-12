@@ -129,3 +129,8 @@ The text properties will be used for similary search, by using a language model.
     1) Generate embeddings for text properties of all the master nodes and other nodes that aren't connected by using a setence transformer. 
     2) Do similarity search by using langchain provided Neo4J vector store.
 - Output: `similarity_search.csv` gets created and contains the results of similar nodes above the score 0.96 
+
+### Training and prediction with DeepLearning
+ - training: `python run.py --project penumbra --task train`
+ - prediction: `python run.py --project penumbra --task predict --model demo_model.pth --data new_data.csv`
+ - online training: `python run.py --project penumbra --task online_train --model model.pth`
