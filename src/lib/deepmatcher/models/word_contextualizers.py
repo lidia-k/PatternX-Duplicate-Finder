@@ -1,6 +1,6 @@
 import six
 
-import deepmatcher as dm
+import src.lib.deepmatcher as dm
 import torch
 import torch.nn as nn
 from torch.autograd import Variable

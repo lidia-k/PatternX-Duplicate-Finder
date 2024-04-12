@@ -5,7 +5,7 @@ from collections import Mapping
 import dill
 import six
 
-import deepmatcher as dm
+import src.lib.deepmatcher as dm
 import torch
 import torch.nn as nn
 

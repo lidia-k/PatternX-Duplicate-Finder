@@ -1,6 +1,6 @@
 """Defines built-in attribute summarizers."""
 
-import deepmatcher as dm
+import src.lib.deepmatcher as dm
 
 
 class SIF(dm.AttrSummarizer):

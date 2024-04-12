@@ -6,7 +6,7 @@ import math
 
 import six
 
-import deepmatcher as dm
+import src.lib.deepmatcher as dm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
