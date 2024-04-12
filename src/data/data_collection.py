@@ -9,7 +9,7 @@ class DataCollector:
         pass
 
 
-class PeNumbraDataCollector(DataCollector):
+class PenumbraDataCollector(DataCollector):
     def __init__(self, data_dir, data_file_name="hcp-manz-sn.xlsx") -> None:
         super().__init__()
         self.data_dir = data_dir

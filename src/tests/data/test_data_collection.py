@@ -1,4 +1,4 @@
-from src.data.data_collection import PeNumbraDataCollector
+from src.data.data_collection import PenumbraDataCollector
 
 def test_PeNumbraDataCollector():
     data_dir = '/Users/tu/SourceCode/notebooks/data/'

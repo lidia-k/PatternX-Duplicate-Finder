@@ -15,7 +15,7 @@ class ModelDeployer:
     def predict(self, data):
         return self.model.predict(data)
 
-class PeNumBraModelDeployer(ModelDeployer):
+class PenumbraModelDeployer(ModelDeployer):
     def predict(self, candidate):
         predictions = self.model.run_prediction(candidate, output_attributes=list(candidate.get_raw_table().columns))
         predictions = predictions.rename(columns={"match_score":"confident"})

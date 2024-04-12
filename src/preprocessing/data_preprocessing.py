@@ -8,7 +8,7 @@ class DataPreprocessor:
         pass
 
 
-class PeNumBraDataPreprocessor(DataPreprocessor):
+class PenumbraDataPreprocessor(DataPreprocessor):
     def __init__(self) -> None:
         super().__init__()
         self.dtype_dict = {

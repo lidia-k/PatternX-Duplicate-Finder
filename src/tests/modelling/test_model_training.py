@@ -1,10 +1,10 @@
-from src.data.data_collection import PeNumbraDataCollector
-from src.preprocessing.data_preprocessing import PeNumBraDataPreprocessor
-from src.preprocessing.feature_engineering import PeNumBraFeatureEnginner
-from src.modelling.model_trainining import PeNumBraModelTrainer
+from src.data.data_collection import PenumbraDataCollector
+from src.preprocessing.data_preprocessing import PenumbraDataPreprocessor
+from src.preprocessing.feature_engineering import PenumbraFeatureEnginner
+from src.modelling.model_trainining import PenumbraModelTrainer
 
 
-def test_PeNumBraModelTrainer():
+def test_PenumbraModelTrainer():
     data_dir = '/Users/tu/SourceCode/notebooks/data/'
     file = "hcp-manz-sn.xlsx"
     dc = PeNumbraDataCollector(data_dir, file)
@@ -17,12 +17,12 @@ def test_PeNumBraModelTrainer():
         items_in_B=[df_dict['(800) No SAP Number and Export '], df_dict['(340) US HCPs'], df_dict['(320) OUS HCPs'], df_dict['(20) France HCPs']]
     )
 
-    p =  PeNumBraDataPreprocessor()
+    p =  PenumbraDataPreprocessor()
     A, B = p.preprocess_data(data = (A, B) ) 
 
-    fe = PeNumBraFeatureEnginner("blocking")
+    fe = PenumbraFeatureEnginner("blocking")
     df = fe.execute_strategy(A, B, fe.blocking_config)
     
-    trainer = PeNumBraModelTrainer()
+    trainer = PenumbraModelTrainer()
     model = trainer.train_model(df)
     assert (model != None)

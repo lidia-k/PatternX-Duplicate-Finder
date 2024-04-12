@@ -11,7 +11,7 @@ class FeatureEngineer:
         return self.strategy.execute(data)
     
 
-class PeNumBraFeatureEnginner(FeatureEngineer):
+class PenumbraFeatureEnginner(FeatureEngineer):
     def __init__(self, strategy):
         super().__init__(strategy)
         self.blocking_config = {
@@ -60,7 +60,7 @@ class PeNumBraFeatureEnginner(FeatureEngineer):
         df = pd.concat([new_A, new_B])
         df, _, _, _, _, _ = self.label_duplicated_data(df, skewed_factor=2)
         del df['id']
-        
+
         return df 
     
     def process_group(self, df:pd.DataFrame) -> pd.DataFrame:

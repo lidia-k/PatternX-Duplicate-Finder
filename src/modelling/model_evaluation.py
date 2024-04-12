@@ -3,6 +3,6 @@ class EvaluationStrategy:
         pass
 
 
-class PeNumBraEvaluation(EvaluationStrategy):
+class PenumbraEvaluation(EvaluationStrategy):
     def evaluate(self, model, data):
         return model.run_eval(data)

@@ -11,7 +11,7 @@ class ModelTrainer:
         pass
 
 
-class PeNumBraModelTrainer(ModelTrainer):
+class PenumbraModelTrainer(ModelTrainer):
     def __init__(self) -> None:
         super().__init__()
         self.data_columns = [
