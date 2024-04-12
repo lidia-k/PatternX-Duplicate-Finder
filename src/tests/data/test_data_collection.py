@@ -3,7 +3,7 @@ from src.data.data_collection import PenumbraDataCollector
 def test_PeNumbraDataCollector():
     data_dir = '/Users/tu/SourceCode/notebooks/data/'
     file = "hcp-manz-sn.xlsx"
-    p = PeNumbraDataCollector(data_dir, file)
+    p = PenumbraDataCollector(data_dir, file)
     p.collect_data()
 
     df_dict = p.df_dict

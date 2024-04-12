@@ -110,7 +110,7 @@ class Attention(dm.WordComparator):
               comparison_merge='concat',
               comparison_network='2-layer-highway',
               input_size=None):
-        hidden_size = hidden_size if hidden_size is not None else input_size[0]
+        self.hidden_size = hidden_size if hidden_size is not None else input_size[0]
 
         self.alignment_networks = nn.ModuleList()
         for head in range(heads):
@@ -167,7 +167,7 @@ class Attention(dm.WordComparator):
             alignment_scores = self.score_dropout(self.alignment_networks[head](queries,
                                                                                 keys))
             if self.scale:
-                alignment_scores = alignment_scores / torch.sqrt(hidden_size)
+                alignment_scores = alignment_scores / torch.sqrt(self.hidden_size )
 
             if context_with_meta.lengths is not None:
                 mask = _utils.sequence_mask(context_with_meta.lengths)

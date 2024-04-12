@@ -7,7 +7,7 @@ from src.modelling.model_trainining import PenumbraModelTrainer
 def test_PenumbraModelTrainer():
     data_dir = '/Users/tu/SourceCode/notebooks/data/'
     file = "hcp-manz-sn.xlsx"
-    dc = PeNumbraDataCollector(data_dir, file)
+    dc = PenumbraDataCollector(data_dir, file)
     dc.collect_data()
 
     df_dict = dc.df_dict
