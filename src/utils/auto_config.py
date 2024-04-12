@@ -23,7 +23,7 @@ class AutoConfigImpl(AutoConfig):
                     value = True if value =='True' else False
                 self.config.repository.data[option] = value
 
-DIR_DUPLICATEFINDER = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) 
+DIR_DUPLICATEFINDER = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 print(f"DIR_DUPLICATEFINDER: {DIR_DUPLICATEFINDER}")
 sys.path.append(DIR_DUPLICATEFINDER)

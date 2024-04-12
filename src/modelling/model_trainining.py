@@ -1,8 +1,10 @@
 import numpy as np 
+from src.modelling.model_evaluation import PenumbraEvaluation
 import src.lib.deepmatcher as dm 
 from src.lib.deepmatcher.optim import SoftNLLLoss, Optimizer
 from src.lib.deepmatcher.runner import Runner, Statistics
 from src.lib.deepmatcher.data.iterator import MatchingIterator
+import src.utils.auto_config as config 
 import torch 
 from tqdm import tqdm
 
@@ -29,13 +31,14 @@ class PenumbraModelTrainer(ModelTrainer):
             'rtable_Contact Type', 'rtable_National Physician ID', 'rtable_Country',
             'rtable_SAP Entity Name', 'label'
        ]
+        self.model_evaluator = PenumbraEvaluation()
         
     def train_model(self, df):
         pos_neg_ratio = np.sum(df['label'] == 1)/ np.sum(df['label'] == 0)
-        dm.data.split(df, ".", 'train.csv', 'valid.csv', 'test.csv',[3, 1, 1])
+        dm.data.split(df, config.DATA_DIR, 'train.csv', 'valid.csv', 'test.csv',[3, 1, 1])
 
         train, validation, test = dm.data.process(
-            path=".",
+            path=config.DATA_DIR,
             cache='train_cache0.pth',
             train='train.csv',
             validation='valid.csv',
@@ -44,12 +47,12 @@ class PenumbraModelTrainer(ModelTrainer):
         )
 
         model = dm.MatchingModel(attr_summarizer='hybrid')
-        model.run_train(train, validation, epochs=3, batch_size=16, best_save_path=None, pos_neg_ratio=pos_neg_ratio)
-
+        model.run_train(train, validation, epochs=3, batch_size=16, best_save_path= config.MODEL_FOLDER +"model.pth", pos_neg_ratio=pos_neg_ratio)
+        self.model_evaluator.evaluate(model, test)
         return model
     
-    def online_training(self, model):        
-        online_train = dm.data.process(path=".",cache='online_train1.pth', train='online_train.csv',use_magellan_convention=True)
+    def online_training(self, model, file_path = 'online_train.csv'):        
+        online_train = dm.data.process(path=".",cache='online_train1.pth', train=file_path,use_magellan_convention=True)
         pos_neg_ratio = 1
         pos_weight = 2 * pos_neg_ratio / (1 + pos_neg_ratio)
         neg_weight = 2 - pos_weight
@@ -90,7 +93,10 @@ class PenumbraModelTrainer(ModelTrainer):
                 optimizer.step()
             losses.append(loss)
             Runner._print_final_stats(epoch + 1, 0, 0, stats)
-            
+
+        save_to = config.MODEL_FOLDER +"retrained_model.pth"
+        model.save_state(save_to)
+        print(f"Saved model to: {save_to}")
         return model
         
             

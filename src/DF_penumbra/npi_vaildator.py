@@ -1,8 +1,8 @@
 import requests
 from fuzzywuzzy import fuzz
 
-from dao.NEO4J_Graph import Graph
-from utils import auto_config as config
+from src.dao.NEO4J_Graph import Graph
+from src.utils import auto_config as config
 
 
 class NPIValidator:

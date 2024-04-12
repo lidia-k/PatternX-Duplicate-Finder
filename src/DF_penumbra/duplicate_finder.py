@@ -1,9 +1,9 @@
 import pandas as pd
 from collections import defaultdict
 
-from dao.NEO4J_Graph import Graph, VectorGraph
-from DF_penumbra.data_processor import DataProcessor
-from utils import auto_config as config
+from src.dao.NEO4J_Graph import Graph, VectorGraph
+from src.DF_penumbra.data_processor import DataProcessor
+from src.utils import auto_config as config
 
 EDGE_TYPES = [
     'npi',
