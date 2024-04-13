@@ -66,6 +66,7 @@ Run `python build_database_from_FHIR.py` from /GNN_on_FHIR directory. To run the
 
 _TODO: The current code is creating a edge type for every single edge, which exponentially increases the total number of edge types. This part of the code (`FHIR_to_graph.py/resource_to_edges`) needs to be updated to only create a new edge type for a unique relationship between two node types._
 
+
 ### Create datapoints from the Neo4j database
 
 Run `python build_datapoints_from_db` from /GNN_on_FHIR directory.
@@ -134,3 +135,4 @@ The text properties will be used for similary search, by using a language model.
  - training: `python run.py --project penumbra --task train`
  - prediction: `python run.py --project penumbra --task predict --model demo_model.pth --data new_data.csv`
  - online training: `python run.py --project penumbra --task online_train --model model.pth --data wrong_prediction.csv`
+

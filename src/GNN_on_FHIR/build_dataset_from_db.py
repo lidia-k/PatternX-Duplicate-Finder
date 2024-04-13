@@ -1,3 +1,4 @@
+import json
 import os
 import pickle
 
@@ -15,6 +16,7 @@ os.makedirs(target_dir, exist_ok=True)
 
 driver = graph.get_driver()
 with driver.session() as session:
+    # Map all the node types to numbers and list up features for each node type
     datapoint_ids = session.run('MATCH (p:Patient) RETURN p.id').value()
     
     prop_query = """
@@ -41,6 +43,14 @@ with driver.session() as session:
         node_type_to_int[resource_type] = num 
         num += 1 
 
+# Build db_info that contains node_type_to_int, edge_type_to_int, and node_types_and_features for reference.
+db_info = {}
+db_info['node_type_to_int'] = node_type_to_int
+node_types_and_features = features
+db_info['node_types_and_features'] = node_types_and_features
+
+
+# Map edge types to numbers and create datapoints that contain edge list, edge types, node types, and features.
 edge_type_to_int = {}
 edge_num = 0 
 base_query = """
@@ -48,16 +58,18 @@ MATCH (p:Patient {id: $id})-[r]-(connectedNode)
 OPTIONAL MATCH (connectedNode)-[r2]-(otherConnectedNode)
 WHERE id(connectedNode) < id(otherConnectedNode)
 RETURN p, collect(DISTINCT connectedNode) as ConnectedNodes, 
+       collect(DISTINCT otherConnectedNode) as OtherNodes,
        collect(DISTINCT r) + collect(DISTINCT r2) as Relationships
 """
-for i in range(3):
+for i in range(len(datapoint_ids)):
     with driver.session() as session:
         result = session.run(base_query, id=datapoint_ids[i]).single()
         p_node = result['p']
         connected_nodes = result['ConnectedNodes']
+        other_nodes = result['OtherNodes']
         relationships = result['Relationships']
 
-        all_nodes = [p_node] + connected_nodes
+        all_nodes = [p_node] + connected_nodes + other_nodes
         neo4j_id_to_graph_idx = {node.element_id: idx for idx, node in enumerate(all_nodes)}
         node_types = [None] * len(all_nodes)
         for node in all_nodes:
@@ -100,4 +112,8 @@ for i in range(3):
             pickle.dump(dp_tuple, f)
  
 
+
+db_info['edge_type_to_int'] = edge_type_to_int
+with open('db_info.json', 'w') as json_file:
+    json.dump(db_info, json_file)
 
