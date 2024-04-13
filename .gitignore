@@ -6,4 +6,10 @@
 /ragenv
 synthea*/
 **/__pycache__/
-**/preprocessed_datapoints/**
+.env
+*.csv
+.DS_Store
+.vscode/settings.json
+/models/*
+online_train1.pth
+train_cache0.pth
