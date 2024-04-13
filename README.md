@@ -133,4 +133,4 @@ The text properties will be used for similary search, by using a language model.
 ### Training and prediction with DeepLearning
  - training: `python run.py --project penumbra --task train`
  - prediction: `python run.py --project penumbra --task predict --model demo_model.pth --data new_data.csv`
- - online training: `python run.py --project penumbra --task online_train --model model.pth`
+ - online training: `python run.py --project penumbra --task online_train --model model.pth --data wrong_prediction.csv`

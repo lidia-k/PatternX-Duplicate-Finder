@@ -62,9 +62,9 @@ if __name__ == '__main__':
         model = trainer.train_model(df)
         
     elif args.project == 'penumbra' and args.task == 'online_train':
-        print(f"model name: {args.model}  online training...")
+        print(f"model name: {args.model} data file: {args.data}  online training...")
         model = PenumbraModelDeployer.__new__(PenumbraModelDeployer).deploy_model(config.MODEL_FOLDER + args.model).model
-        data_file = config.DATA_DIR + "/wrong_prediction.csv"
+        data_file = config.DATA_DIR + args.data
         
         trainer = PenumbraModelTrainer()
         trainer.online_training(model, data_file)
