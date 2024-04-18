@@ -53,34 +53,50 @@ PO_COLS = {
 }
 PO_VC_COLS = {
     'Full Name': 'fullname',
-    'b_first_name': 'fname',
-    'b_last_name': 'lname',
-    'a_country_code': 'country'
+    'first_name': 'fname',
+    'middle_name': 'mname',
+    'last_name': 'lname',
+    'country_code': 'country',
+    'address_1': 'addr1',
+    'address_2': 'addr2',
+    'lisc': 'license'
 }
 
 class DataProcessor:
-    def __init__(self):
+    def __init__(self, data_dir):
         self.graph = Graph(
             config.NEO4J_URL,
             config.NEO4J_USER,
             config.NEO4J_PASSWORD
         )
+        self.data_dir = data_dir
 
+    def _process_columns(self, prop):
+        prop = prop.replace('a_', '')
+        prop = prop.replace('b_', '') 
+        prop = prop.replace('t_', '') if prop.startswith('t_') else prop 
+        return prop
+    
+    def _process_names(self, file_name):
+        file_type = 'sp' if 'speaker' in file_name else 'po'
+        renamed_cols = SP_COLS if file_type == 'sp' else PO_COLS
+        name_str = file_name.split('-')[3 if file_type == 'sp' else 2].split('.')[0]
+        file_name = f'{self.data_dir}/{file_type}_{name_str}.csv'
+        node_type = f'{file_type}_{name_str[:2]}'
+        return renamed_cols, name_str, file_name, node_type
+            
     def _update_csv_file(self, csv_file):
         if 'speaker' not in csv_file and 'hcp' not in csv_file:
             print(f'Invalid file: {csv_file}')
             return
 
-        df = pd.read_csv(csv_file) 
-        file_type = 'sp' if 'speaker' in csv_file else 'po'
-        name_str = csv_file.split('-')[3 if file_type == 'sp' else 2].split('.')[0]
-        file_name = f'/data/{file_type}_{name_str}.csv'
-        rename = SP_COLS if file_type == 'sp' else PO_COLS
-
+        rename, name_str, file_name, node_type = self._process_names(csv_file)
+        df = pd.read_csv(csv_file)        
+        
         # Add uid column based on the node type        
-        node_type = f'{file_type}_{name_str[:2]}'
         df['uid'] = [f'{node_type}_{i+2}' for i in range(len(df))]
-
+        
+        """
         # Drop unnecessary columns
         drop_cols = [
             'Prefix', 'Status', 'Contact Type', 'Reportable HCP', 
@@ -89,21 +105,18 @@ class DataProcessor:
         for col in drop_cols:
             if col in df.columns:
                 df.drop(columns=[col], inplace=True)
-    
+        """
+
         if 'speaker' in csv_file and not 'all' in csv_file:      
             df = pd.read_csv(csv_file, header=1)
             df['uid'] = [f'{node_type}_{i+3}' for i in range(len(df))]
             df['franchise'] = [name_str.capitalize() for i in range(len(df))]
         
         if 'vcheck' in csv_file:
+            df.columns = [self._process_columns(col) for col in df.columns]
             rename = PO_VC_COLS
-            for col in ['b_first_name', 'b_last_name']:
+            for col in ['first_name', 'last_name']:
                 df[col] = df[col].str.capitalize()
-
-        # Replace null values with np.nan
-        null_val = [0, '0', 'N/A', '#N/A', 'N/A ', 'n/a (ask Carson Milner)', 'unknown']
-        df.replace(null_val, np.nan, inplace=True)
-        df = df.loc[:, ~df.columns.str.contains('^Unnamed', case=False)]
 
         # Renmae columns and convert to lowercase
         df = df.rename(columns=rename)
@@ -113,7 +126,12 @@ class DataProcessor:
         int_cols = ['npi', 'qb_id', 'sap_no', 'license']
         for col in int_cols:
             if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce').astype('Int64')
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int).astype('Int64')
+        
+        # Replace null values with np.nan
+        null_val = [0, '0', 'N/A', '#N/A', 'N/A ', 'n/a (ask Carson Milner)', 'unknown']
+        df.replace(null_val, np.nan, inplace=True)
+        df = df.loc[:, ~df.columns.str.contains('^Unnamed', case=False)]
 
         df.to_csv(f'./{file_name}', index=False)
         print(f'Updated file: {file_name}')
@@ -121,9 +139,9 @@ class DataProcessor:
 
     def _load_data_from_cypher(self, file_path):
         if 'sp' in file_path:
-            cypher_file = './data/sp_all.cypher' if 'all' in file_path else './data/sp.cypher'
+            cypher_file = f'{self.data_dir}/sp_all.cypher' if 'all' in file_path else f'{self.data_dir}/sp.cypher'
         else: 
-            cypher_file = './data/po_vcheck.cypher' if 'vcheck' in file_path else './data/po.cypher'
+            cypher_file = f'{self.data_dir}/po_vcheck.cypher' if 'vcheck' in file_path else f'{self.data_dir}/po.cypher'
 
         with open(cypher_file, 'r') as f:
             query = f.read()
@@ -141,14 +159,13 @@ class DataProcessor:
             subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
 
         # Remove existing data files
-        data_dir = './data'
         f_types = ['sp_*.csv', 'po_*.csv']
         for f_type in f_types:
-            for f in glob.glob(f'{data_dir}/{f_type}'):
+            for f in glob.glob(f'{self.data_dir}/{f_type}'):
                 os.remove(f)
 
         # Update csv files and load data to Neo4j
-        data_bundles = glob.glob(f'{data_dir}/*.csv')
+        data_bundles = glob.glob(f'{self.data_dir}/*.csv')
         for f in data_bundles:
             fname = self._update_csv_file(f)
             self._load_data_from_cypher(fname)
@@ -168,9 +185,7 @@ class DataProcessor:
             if val is None:
                 continue 
 
-            prop = prop.replace('a_', '')
-            prop = prop.replace('b_', '') 
-            prop = prop.replace('t_', '') if prop.startswith('t_') else prop 
+            prop = self._process_columns(prop)
             prop = prop.replace('_', ' ') if '_' in prop else prop
             prop = prop.replace('sap', 'System Applications and Products in Data Processing(SAP)')
             prop = 'description' if prop == 'desc' else prop 
