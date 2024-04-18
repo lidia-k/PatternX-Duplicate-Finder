@@ -70,6 +70,20 @@ class DataProcessor:
             config.NEO4J_PASSWORD
         )
         self.data_dir = data_dir
+        
+    def _process_bi_emails(self, df):
+        df['email'] = df['email'].astype(str).str.split('; ')
+        df = df.explode('email')
+        return df
+    
+    def _process_biSAP_number(self, df):
+        df['sap_no'] = df['sap_no'].astype(str).str.split('\n')
+        df = df.explode('sap_no')
+
+        if 'sap_name' in df.columns:
+            df['sap_name'] = df['sap_name'].astype(str).str.split('\n')
+            df = df.explode('sap_name')
+        return df 
 
     def _process_columns(self, prop):
         prop = prop.replace('a_', '')
@@ -122,6 +136,14 @@ class DataProcessor:
         df = df.rename(columns=rename)
         df.columns = [col.lower() for col in df.columns]
 
+        # Split a row with two sap numbers into two rows
+        if 'sap_no' in df.columns:
+            df = self._process_biSAP_number(df)
+
+        # Split a row with two emails into two rows
+        if 'email' in df.columns:
+            df = self._process_bi_emails(df)
+
         # Convert columns to int
         int_cols = ['npi', 'qb_id', 'sap_no', 'license']
         for col in int_cols:
@@ -170,6 +192,28 @@ class DataProcessor:
             fname = self._update_csv_file(f)
             self._load_data_from_cypher(fname)
     
+    def detect_high_missing_features(self, missing_percentage_threshold=59.2):
+        q = '''
+        // Collect all unique property keys from all nodes
+        MATCH (n)
+        WITH COLLECT(n) AS nodes
+        UNWIND nodes AS node
+        UNWIND keys(node) AS key
+        WITH key, COUNT(DISTINCT node) AS nonNullCount, SIZE(nodes) AS totalNodes
+        RETURN key, totalNodes, nonNullCount, totalNodes - nonNullCount AS nullCount
+        '''
+        result = self.graph.cypher_transaction(q)
+        total = result[0][1]
+        for prop in result:
+            prop_name = prop[0]
+            null_count = prop[3]
+            missing_percentage = (null_count / total) * 100
+            if missing_percentage > missing_percentage_threshold:
+                print(f'{prop_name} has {missing_percentage}% missing values')
+                
+    def detect_common_features(self, df):
+        pass
+
     @classmethod
     def _build_text(self, node):
         text = 'The following is the information of the health care provider.\n'
