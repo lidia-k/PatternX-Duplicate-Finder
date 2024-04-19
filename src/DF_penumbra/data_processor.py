@@ -6,6 +6,7 @@ import platform
 import subprocess
 
 from src.dao.NEO4J_Graph import Graph
+from src.DF_penumbra.duplicate_finder import EDGE_TYPES
 from src.utils import auto_config as config
 
 SP_COLS = {
@@ -210,9 +211,34 @@ class DataProcessor:
             missing_percentage = (null_count / total) * 100
             if missing_percentage > missing_percentage_threshold:
                 print(f'{prop_name} has {missing_percentage}% missing values')
-                
-    def detect_common_features(self, df):
-        pass
+
+    def build_matching_pairs(self):
+        edge_types = ['r1_' + et for et in EDGE_TYPES]
+        q = f'''
+        UNWIND {edge_types} AS type
+        MATCH (a)-[r]->(b)
+        WHERE type(r) = type AND a.uid <> b.uid
+        RETURN DISTINCT a, b
+        '''
+        result = self.graph.cypher_transaction(q)
+        node_pairs = [(record[0], record[1]) for record in result]
+
+        all_props = set()
+        for node_a, node_b in node_pairs:
+            all_props.update(dict(node_a).keys())
+            all_props.update(dict(node_b).keys())
+
+        rows = []
+        for node_a, node_b in node_pairs:
+            row = {}
+            for prop in all_props:
+                row[f'ltable_{prop}'] = node_a.get(prop, np.nan)
+            for prop in all_props:
+                row[f'rtable_{prop}'] = node_b.get(prop, np.nan)
+            rows.append(row)
+        
+        df = pd.DataFrame(rows)
+        df.to_csv(f'{self.data_dir}/matching_pairs.csv', index=False)
 
     @classmethod
     def _build_text(self, node):
