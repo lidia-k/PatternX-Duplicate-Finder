@@ -2,7 +2,6 @@ import pandas as pd
 from collections import defaultdict
 
 from src.dao.NEO4J_Graph import Graph, VectorGraph
-from src.DF_penumbra.data_processor import DataProcessor
 from src.utils import auto_config as config
 
 EDGE_TYPES = [
@@ -107,8 +106,8 @@ class DuplicateFinder:
         m_node = session.run(create_q, master_prop=master_props).single()[0]
 
         # Set the text property for the master node
-        text, q = DataProcessor._build_text(m_node)
-        session.run(q, uid=m_node['uid'], text=text)
+        #text, q = DataProcessor._build_text(m_node)
+        #session.run(q, uid=m_node['uid'], text=text)
 
         # Create a relationship between the master node and all the nodes in the cluster
         for id in uids:
