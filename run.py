@@ -7,7 +7,7 @@ from src.modelling.model_trainining import PenumbraModelTrainer
 from src.preprocessing.data_preprocessing import PenumbraDataPreprocessor
 from src.preprocessing.feature_engineering import PenumbraFeatureEnginner
 from src.DF_penumbra.data_processor import DataProcessor
-from src.DF_penumbra.npi_vaildator import NPIValidator
+#from src.DF_penumbra.npi_vaildator import NPIValidator
 from src.DF_penumbra.duplicate_finder import DuplicateFinder
 import src.utils.auto_config as config 
 import pandas as pd 
@@ -116,13 +116,16 @@ if __name__ == '__main__':
     elif args.project == 'penumbra':
         print(f'Running it for {choices[1]}')
         
-        dp = DataProcessor()
+        dp = DataProcessor(data_dir='src/data')
         #dp.import_csv_to_neo4j()
         #dp.add_text_props()
-        
+        #dp.detect_high_missing_features()
+        dp.build_matching_pairs()
+
         #NPIValidator().validate_NPIs()
         
         df = DuplicateFinder()
         #df.process_o_dups() # Obvious duplicates
         #df.lookup_o_dups()
-        df.similarity_search()
+        #df.similarity_search()
+
