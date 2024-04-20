@@ -1,8 +1,10 @@
+from src.modelling.model_evaluation import PenumbraEvaluation
 from src.data.data_collection import PenumbraDataCollector
 from src.preprocessing.data_preprocessing import PenumbraDataPreprocessor
 from src.preprocessing.feature_engineering import PenumbraFeatureEnginner
 from src.modelling.model_trainining import PenumbraModelTrainer
-
+import src.utils.auto_config as config 
+import src.lib.deepmatcher as dm
 
 def test_PenumbraModelTrainer():
     data_dir = '/Users/tu/SourceCode/notebooks/data/'
@@ -33,3 +35,4 @@ def test_PenumbraModelTrainer():
     trainer = PenumbraModelTrainer()
     model = trainer.train_model(df)
     assert (model != None)
+    
