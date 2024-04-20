@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import platform
 import subprocess
+from itertools import combinations
 
 from src.dao.NEO4J_Graph import Graph
 from src.DF_penumbra.duplicate_finder import EDGE_TYPES
@@ -28,6 +29,7 @@ SP_COLS = {
     'Presentation Title': 'title',
     'Country': 'country2',
 }
+
 PO_COLS = {
     'First Name': 'fname',
     'Last Name': 'lname',
@@ -52,6 +54,7 @@ PO_COLS = {
     'Primary Organization': 'org',
     'Primary Organization Type': 'org_type',
 }
+
 PO_VC_COLS = {
     'Full Name': 'fullname',
     'first_name': 'fname',
@@ -63,6 +66,9 @@ PO_VC_COLS = {
     'lisc': 'license'
 }
 
+INT_COLS = ['npi', 'qb_id', 'sap_no', 'license']
+
+
 class DataProcessor:
     def __init__(self, data_dir):
         self.graph = Graph(
@@ -73,16 +79,16 @@ class DataProcessor:
         self.data_dir = data_dir
         
     def _process_bi_emails(self, df):
-        df['email'] = df['email'].astype(str).str.split('; ')
+        df['email'] = df['email'].apply(lambda x: x.split('; ') if pd.notna(x) else x)
         df = df.explode('email')
         return df
     
     def _process_biSAP_number(self, df):
-        df['sap_no'] = df['sap_no'].astype(str).str.split('\n')
+        df['sap_no'] = df['sap_no'].apply(lambda x: str(x).split('\n') if pd.notna(x) else x)
         df = df.explode('sap_no')
 
         if 'sap_name' in df.columns:
-            df['sap_name'] = df['sap_name'].astype(str).str.split('\n')
+            df['sap_name'] = df['sap_name'].apply(lambda x: x.split('\n') if pd.notna(x) else x)
             df = df.explode('sap_name')
         return df 
 
@@ -99,7 +105,13 @@ class DataProcessor:
         file_name = f'{self.data_dir}/{file_type}_{name_str}.csv'
         node_type = f'{file_type}_{name_str[:2]}'
         return renamed_cols, name_str, file_name, node_type
-            
+
+    def _process_int_cols(self, df, cols):
+        for col in cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int).astype('Int64')
+        return df
+
     def _update_csv_file(self, csv_file):
         if 'speaker' not in csv_file and 'hcp' not in csv_file:
             print(f'Invalid file: {csv_file}')
@@ -107,7 +119,7 @@ class DataProcessor:
 
         rename, name_str, file_name, node_type = self._process_names(csv_file)
         df = pd.read_csv(csv_file)        
-        
+
         # Add uid column based on the node type        
         df['uid'] = [f'{node_type}_{i+2}' for i in range(len(df))]
         
@@ -146,10 +158,7 @@ class DataProcessor:
             df = self._process_bi_emails(df)
 
         # Convert columns to int
-        int_cols = ['npi', 'qb_id', 'sap_no', 'license']
-        for col in int_cols:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int).astype('Int64')
+        df = self._process_int_cols(df, INT_COLS)
         
         # Replace null values with np.nan
         null_val = [0, '0', 'N/A', '#N/A', 'N/A ', 'n/a (ask Carson Milner)', 'unknown']
@@ -212,15 +221,7 @@ class DataProcessor:
             if missing_percentage > missing_percentage_threshold:
                 print(f'{prop_name} has {missing_percentage}% missing values')
 
-    def build_matching_pairs(self):
-        edge_types = ['r1_' + et for et in EDGE_TYPES]
-        q = f'''
-        UNWIND {edge_types} AS type
-        MATCH (a)-[r]->(b)
-        WHERE type(r) = type AND a.uid <> b.uid
-        RETURN DISTINCT a, b
-        '''
-        result = self.graph.cypher_transaction(q)
+    def _create_df(self, result, file_name, label):
         node_pairs = [(record[0], record[1]) for record in result]
 
         all_props = set()
@@ -238,7 +239,73 @@ class DataProcessor:
             rows.append(row)
         
         df = pd.DataFrame(rows)
-        df.to_csv(f'{self.data_dir}/matching_pairs.csv', index=False)
+        
+        int_cols = ['ltable_' + col for col in INT_COLS] + ['rtable_' + col for col in INT_COLS]
+        df = self._process_int_cols(df, int_cols)
+        
+        df.replace(0, np.nan, inplace=True)
+        df['label'] = label
+
+        #df = df.loc[:, ['label', 'ltable_uid', 'rtable_uid', 'ltable_npi', 'rtable_npi', 'ltable_fullname', 'rtable_fullname']]
+        df.to_csv(file_name, index=False)
+        return df
+
+    def _build_non_matching_pairs(self, limit=100):
+        """
+        For nodes that have different npis, create a non-matching pair.
+        """
+        q = f'''
+        MATCH (n)
+        WHERE NOT n:Master AND n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())
+        RETURN n
+        '''
+        result = self.graph.cypher_transaction(q)
+
+        df = pd.DataFrame([dict(record[0]) for record in result])
+        
+        pairs = [(df.iloc[i], df.iloc[j]) for i, j in combinations(range(len(df)), 2)]
+        paired_data = []
+        for left, right in pairs:
+            left_dict = {'ltable_' + col: val for col, val in left.items()}
+            right_dict = {'rtable_' + col: val for col, val in right.items()}
+            paired_data.append({**left_dict, **right_dict})
+
+        paired_df = pd.DataFrame(paired_data)
+        
+        int_cols = ['ltable_' + col for col in INT_COLS] + ['rtable_' + col for col in INT_COLS]
+        paired_df = self._process_int_cols(paired_df, int_cols)
+
+        paired_df.replace(0, np.nan, inplace=True)
+        paired_df['label'] = 0
+        paired_df.to_csv('non_matching_pairs.csv', index=False)
+
+        print(f'The number of non-matching pairs:', len(paired_df))
+        return paired_df
+       
+    def _build_matching_pairs(self):
+        edge_types = ['r1_' + et for et in EDGE_TYPES]
+        q = f'''
+        UNWIND {edge_types} AS type
+        MATCH (a)-[r]->(b)
+        WHERE type(r) = type AND a.uid <> b.uid
+        RETURN DISTINCT a, b
+        '''
+        result = self.graph.cypher_transaction(q)
+        
+        df = self._create_df(result, 'matching_pairs.csv', label=1)
+        print(f'The number of matching pairs:', len(df))
+        return df
+        
+    def label_pairs(self):
+        """
+        Label the pairs as matching or non-matching.
+        """
+        matching_df = self._build_matching_pairs()
+        non_matching_df = self._build_non_matching_pairs(limit=100)
+
+        combined_df = pd.concat([matching_df, non_matching_df], sort=False).reset_index(drop=True)
+        #combined_df = combined_df.loc[:, ['label', 'ltable_uid', 'rtable_uid', 'ltable_npi', 'rtable_npi', 'ltable_fullname', 'rtable_fullname']]
+        combined_df.to_csv('combined_pairs.csv', index=False)
 
     @classmethod
     def _build_text(self, node):
