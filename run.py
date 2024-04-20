@@ -1,6 +1,7 @@
 import argparse
 
 #from DF_adventureworks.duplicate_finder import DuplicateFinder
+from src.modelling.model_evaluation import PenumbraEvaluation
 from src.modelling.model_deployment import PenumbraModelDeployer
 from src.data.data_collection import PenumbraDataCollector
 from src.modelling.model_trainining import PenumbraModelTrainer
@@ -11,6 +12,7 @@ from src.DF_penumbra.data_processor import DataProcessor
 from src.DF_penumbra.duplicate_finder import DuplicateFinder
 import src.utils.auto_config as config 
 import pandas as pd 
+import src.lib.deepmatcher as dm
 
 if __name__ == '__main__':
     choices = ['adventureworks', 'penumbra']
@@ -112,7 +114,21 @@ if __name__ == '__main__':
        'rtable_SAP Entity Name', 'label']
         
         wrong_predictions[online_learning_selected_columns].to_csv(write_path, index = False)
+    elif args.project == 'penumbra' and args.task == 'eval':
+        print("Evaluating model...")
+        train, validation, test = dm.data.process(
+            path=config.DATA_DIR,
+            train='train.csv',
+            validation='valid.csv',
+            test='test.csv',
+            use_magellan_convention=True
+        ) 
+
+        model_evaluation = PenumbraEvaluation()
+        model1 = model_evaluation.load_model(config.MODEL_FOLDER +"model.pth")
+        model2 = model_evaluation.load_model(config.MODEL_FOLDER +"retrained_model.pth")
         
+        model_evaluation.compare_models(model1, model2, test)
     elif args.project == 'penumbra':
         print(f'Running it for {choices[1]}')
         
