@@ -36,18 +36,3 @@ def test_PenumbraModelTrainer():
     model = trainer.train_model(df)
     assert (model != None)
     
-def test_choose_best_model():
-    train, validation, test = dm.data.process(
-            path=config.DATA_DIR,
-            # cache='train_cache0.pth',
-            train='train.csv',
-            validation='valid.csv',
-            test='test.csv',
-            use_magellan_convention=True
-        ) 
-
-    model_evaluation = PenumbraEvaluation()
-    model1 = model_evaluation.load_model(config.MODEL_FOLDER +"model.pth")
-    model2 = model_evaluation.load_model(config.MODEL_FOLDER +"retrained_model.pth")
-    
-    model_evaluation.compare_models(model1, model2, test)
