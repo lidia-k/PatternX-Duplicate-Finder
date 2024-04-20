@@ -94,15 +94,14 @@ docker run \
 
 ### How to run the duplicate finder 
 
-Depending on which step you want to implement, you can adjust the run file, and run `python3 run.py penumbra`
+Depending on which step you want to implement, you can adjust the run file, and run `python3 run.py --project penumbra`
 
 **Step 1. Process and load the csv files to Neo4J.**
 
 - Input: The original csv files and the cypher files should reside in /src/data.
-- Usage: `DataProcessor().import_csv_to_neo4j()` and `DataProcessor().add_text_props` in the run file. 
+- Usage: `DataProcessor().import_csv_to_neo4j()` in the run file. If you want to run RAG, also run `DataProcessor().add_text_props`.
 - Output: Check Neo4j GUI (localhost:7474) to see there is data loaded properly.  
-There should be a text property for all the nodes that summarize the properties.
-The text properties will be used for similary search, by using a language model.
+If you ran `DataProcessor().add_text_props`, there should be text properties for all the nodes that summarize their properties. The text properties will be used for similary search, doing RAG.
 
 **Step 2. Validate NPIs and names against the government registry.** 
 
@@ -130,6 +129,15 @@ The text properties will be used for similary search, by using a language model.
     1) Generate embeddings for text properties of all the master nodes and other nodes that aren't connected by using a setence transformer. 
     2) Do similarity search by using langchain provided Neo4J vector store.
 - Output: `similarity_search.csv` gets created and contains the results of similar nodes above the score 0.96 
+
+## How to prepare labeled data, using Neo4j
+
+- Input: The data in Neo4J
+- Usage: `DataProcessor.label_pairs()`
+- Method: 
+    1) Use NPI to create matching and non-matching pairs of rows
+    2) All the columns of the rows are included in the table
+- Output: `combined_pairs.csv` gets generated and contains the matching rows with the label 1 (5925 in total) and the non-matching rows with the label 0 (70826 in total)
 
 ### Training and prediction with DeepLearning
  - training: `python run.py --project penumbra --task train`

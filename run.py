@@ -134,14 +134,11 @@ if __name__ == '__main__':
         
         dp = DataProcessor(data_dir='src/data')
         #dp.import_csv_to_neo4j()
-        #dp.add_text_props()
-        #dp.detect_high_missing_features()
-        dp.build_matching_pairs()
 
         #NPIValidator().validate_NPIs()
         
         df = DuplicateFinder()
         #df.process_o_dups() # Obvious duplicates
-        #df.lookup_o_dups()
-        #df.similarity_search()
+        
+        #dp.label_pairs()
 
