@@ -277,6 +277,7 @@ class DataProcessor:
 
         paired_df.replace(0, np.nan, inplace=True)
         paired_df['label'] = 0
+        paired_df = paired_df.sample(n=limit, random_state=1)
         paired_df.to_csv('non_matching_pairs.csv', index=False)
 
         print(f'The number of non-matching pairs:', len(paired_df))
@@ -296,12 +297,13 @@ class DataProcessor:
         print(f'The number of matching pairs:', len(df))
         return df
         
-    def label_pairs(self):
+    def label_pairs(self, skewed_factor=5):
         """
         Label the pairs as matching or non-matching.
         """
         matching_df = self._build_matching_pairs()
-        non_matching_df = self._build_non_matching_pairs(limit=100)
+        limit = len(matching_df) * skewed_factor
+        non_matching_df = self._build_non_matching_pairs(limit=limit)
 
         combined_df = pd.concat([matching_df, non_matching_df], sort=False).reset_index(drop=True)
         #combined_df = combined_df.loc[:, ['label', 'ltable_uid', 'rtable_uid', 'ltable_npi', 'rtable_npi', 'ltable_fullname', 'rtable_fullname']]

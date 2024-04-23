@@ -140,5 +140,5 @@ if __name__ == '__main__':
         df = DuplicateFinder()
         #df.process_o_dups() # Obvious duplicates
         
-        #dp.label_pairs()
+        dp.label_pairs(skewed_factor=2)
 
