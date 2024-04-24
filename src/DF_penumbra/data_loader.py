@@ -116,5 +116,5 @@ class Neo4jDataLoader:
         # Update csv files and load data to Neo4j
         data_bundles = glob.glob(f'{self.data_dir}/*.csv')
         for f in data_bundles:
-            fname = self._prepare_csv_file_csv_file(f)
+            fname = self._prepare_csv_file(f)
             self._load_data_from_cypher(fname)

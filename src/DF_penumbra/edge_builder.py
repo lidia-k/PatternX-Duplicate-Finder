@@ -38,7 +38,7 @@ class EdgeBuilder:
                     RETURN count(*)
                     '''
             result = session.run(q)
-            print(f'Build {result.single()[0]} edges for {type}')
+            print(f'Built {result.single()[0]} edges for {type}')
     
     def _create_gds_graph(self, session):
         """
