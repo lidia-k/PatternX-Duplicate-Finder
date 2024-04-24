@@ -133,8 +133,10 @@ if __name__ == '__main__':
     elif args.project == 'penumbra':
         print(f'Running it for {choices[1]}')
         
+        data_dir = 'src/data'
+
         print('Loading data to Neo4j')
-        dl = Neo4jDataLoader()
+        dl = Neo4jDataLoader(data_dir)
         dl.load_csv_to_neo4j()
 
         print('Building edges and master nodes for obvious duplicates')
@@ -142,7 +144,7 @@ if __name__ == '__main__':
         eb.handle_o_dups()
 
         print('Preparing training data...')
-        dp = DataPreprocessor(data_dir='src/data')
+        dp = DataPreprocessor(data_dir)
         dp.prepare_training_data()
     
         #NPIValidator().validate_NPIs()
