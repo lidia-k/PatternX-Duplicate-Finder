@@ -59,7 +59,7 @@ class DataPreprocessor:
         df = pd.DataFrame(rows)
         
         int_cols = ['ltable_' + col for col in constants.INT_COLS] + ['rtable_' + col for col in constants.INT_COLS]
-        df = self._process_int_cols(df, int_cols)
+        df = process_int_cols(df, int_cols)
         
         df.replace(0, np.nan, inplace=True)
         df['label'] = label
