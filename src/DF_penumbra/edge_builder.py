@@ -2,19 +2,11 @@ import pandas as pd
 from collections import defaultdict
 
 from src.dao.NEO4J_Graph import Graph, VectorGraph
+from src.DF_penumbra import constants
 from src.utils import auto_config as config
 
-EDGE_TYPES = [
-    'npi',
-    'fullname_email',
-    'fullname_sap_no',
-    'fullname_qb_id'
-]
 
-COLS_TO_USE = ['uid', 'fname', 'lname', 'fullname', 'npi', 
-               'country', 'speciality', 'email', 'sap_no', 'qb_id']
-
-class DuplicateFinder:
+class EdgeBuilder:
     def __init__(self):
         self.graph = Graph(
             config.NEO4J_URL,
@@ -29,7 +21,7 @@ class DuplicateFinder:
         If two nodes have the same property, create an edge between them.
         We call these obvious duplicates.
         """
-        for type in EDGE_TYPES:
+        for type in constants.EDGE_TYPES:
             if type == 'npi':
                 q = f'''
                     MATCH (a),(b)
@@ -130,7 +122,7 @@ class DuplicateFinder:
                 i += 1
         print(f'Created {i-1} master nodes')
 
-    def process_o_dups(self):
+    def handle_o_dups(self):
         driver = self.graph.get_driver()
         with driver.session() as session:
             self._build_o_dup_edges(session)
@@ -139,7 +131,7 @@ class DuplicateFinder:
     def lookup_o_dups(self):
         driver = self.graph.get_driver()
         with driver.session() as session:
-            for type in EDGE_TYPES:
+            for type in constants.EDGE_TYPES:
                 q = f'''
                     MATCH (a)-[:r1_{type}]-(b)
                     WHERE id(a) < id(b)
@@ -178,7 +170,7 @@ class DuplicateFinder:
                 self.distinct_pairs.add(pair)
                 doc_dict = {}
                 doc_dict = {'score': score}
-                doc_dict.update({col: metadata.get(col, '') for col in COLS_TO_USE})
+                doc_dict.update({col: metadata.get(col, '') for col in constants.COLS_TO_USE})
                 results_list.append(doc_dict)
         
         return results_list
@@ -189,7 +181,7 @@ class DuplicateFinder:
             vector_g = VectorGraph(node)
 
         csv_data = []
-        empty_row = {col: '' for col in COLS_TO_USE}
+        empty_row = {col: '' for col in constants.COLS_TO_USE}
 
         # Fetch master nodes and nodes that are not connected to master nodes
         result = self._fetch_nodes()
@@ -201,7 +193,7 @@ class DuplicateFinder:
             text = node['text']
             
             # The original node is the first row in the csv
-            node_dict = {col: node.get(col, '') for col in COLS_TO_USE}
+            node_dict = {col: node.get(col, '') for col in constants.COLS_TO_USE}
             node_dict['score'] = ''
 
             results_list = []

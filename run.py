@@ -7,9 +7,10 @@ from src.data.data_collection import PenumbraDataCollector
 from src.modelling.model_trainining import PenumbraModelTrainer
 from src.preprocessing.data_preprocessing import PenumbraDataPreprocessor
 from src.preprocessing.feature_engineering import PenumbraFeatureEnginner
-from src.DF_penumbra.data_processor import DataProcessor
+from src.DF_penumbra.data_loader import Neo4jDataLoader
+from src.DF_penumbra.data_prepocessor import DataPreprocessor
 #from src.DF_penumbra.npi_vaildator import NPIValidator
-from src.DF_penumbra.duplicate_finder import DuplicateFinder
+from src.DF_penumbra.edge_builder import EdgeBuilder
 import src.utils.auto_config as config 
 import pandas as pd 
 import src.lib.deepmatcher as dm
@@ -132,13 +133,19 @@ if __name__ == '__main__':
     elif args.project == 'penumbra':
         print(f'Running it for {choices[1]}')
         
-        dp = DataProcessor(data_dir='src/data')
-        #dp.import_csv_to_neo4j()
+        print('Loading data to Neo4j')
+        dl = Neo4jDataLoader()
+        dl.load_csv_to_neo4j()
 
+        print('Building edges and master nodes for obvious duplicates')
+        eb = EdgeBuilder()
+        eb.handle_o_dups()
+
+        print('Preparing training data...')
+        dp = DataPreprocessor(data_dir='src/data')
+        dp.prepare_training_data()
+    
         #NPIValidator().validate_NPIs()
-        
-        df = DuplicateFinder()
-        #df.process_o_dups() # Obvious duplicates
-        
-        dp.label_pairs(skewed_factor=2)
+    
+    
 
