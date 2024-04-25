@@ -11,6 +11,7 @@ from src.DF_penumbra.data_loader import Neo4jDataLoader
 from src.DF_penumbra.data_prepocessor import DataPreprocessor
 #from src.DF_penumbra.npi_vaildator import NPIValidator
 from src.DF_penumbra.edge_builder import EdgeBuilder
+from src.DF_penumbra.training_magellan import MagellanTrainer
 import src.utils.auto_config as config 
 import pandas as pd 
 import src.lib.deepmatcher as dm
@@ -137,16 +138,19 @@ if __name__ == '__main__':
 
         print('Loading data to Neo4j')
         dl = Neo4jDataLoader(data_dir)
-        dl.load_csv_to_neo4j()
+        #dl.load_csv_to_neo4j()
 
         print('Building edges and master nodes for obvious duplicates')
         eb = EdgeBuilder()
-        eb.handle_o_dups()
+        #eb.handle_o_dups()
 
         print('Preparing training data...')
         dp = DataPreprocessor(data_dir)
-        dp.prepare_training_data()
-    
+        ltable, rtable, training_data = dp.prepare_training_data()
+
+        print('Training Magellan model...')
+        mt = MagellanTrainer(ltable, rtable, training_data)
+        mt.train_model()
         #NPIValidator().validate_NPIs()
     
     

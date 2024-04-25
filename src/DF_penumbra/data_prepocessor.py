@@ -1,3 +1,4 @@
+import os
 from itertools import combinations
 
 import py_entitymatching as em
@@ -117,30 +118,32 @@ class DataPreprocessor:
         """
         Label the pairs as matching or non-matching and prepare the training data. 
         """
-        matching_df = self._build_matching_pairs()
-        limit = len(matching_df) * skewed_factor
-        non_matching_df = self._build_non_matching_pairs(limit=limit)
+        file_paths = ['A.csv', 'B.csv', 'C.csv']
+        if not all(os.path.isfile(file) for file in file_paths):
+            matching_df = self._build_matching_pairs()
+            limit = len(matching_df) * skewed_factor
+            non_matching_df = self._build_non_matching_pairs(limit=limit)
 
-        combined_df = pd.concat([matching_df, non_matching_df], sort=False)
-        combined_df = shuffle(combined_df, random_state=1).reset_index(drop=True)
-        combined_df['id'] = combined_df.index
-        combined_df['ltable_id'] = combined_df['id']
-        combined_df['rtable_id'] = combined_df['id']
-        #combined_df = combined_df.loc[:, ['label', 'ltable_uid', 'rtable_uid', 'ltable_npi', 'rtable_npi', 'ltable_fullname', 'rtable_fullname']]
-        combined_df.to_csv('C.csv', index=False)
+            combined_df = pd.concat([matching_df, non_matching_df], sort=False)
+            combined_df = shuffle(combined_df, random_state=1).reset_index(drop=True)
+            combined_df['id'] = combined_df.index
+            combined_df['ltable_id'] = combined_df['id']
+            combined_df['rtable_id'] = combined_df['id']
+            #combined_df = combined_df.loc[:, ['label', 'ltable_uid', 'rtable_uid', 'ltable_npi', 'rtable_npi', 'ltable_fullname', 'rtable_fullname']]
+            combined_df.to_csv('C.csv', index=False)
 
-        ltable_cols = [col for col in combined_df.columns if 'ltable_' in col]
-        rtable_cols = [col for col in combined_df.columns if 'rtable_' in col]
-        
-        A = combined_df[ltable_cols]
-        A.columns = [col.replace('ltable_', '') for col in ltable_cols]
-        A = A.rename(columns={'id': 'ltable_id'})
-        A.to_csv('A.csv', index=False)
+            ltable_cols = [col for col in combined_df.columns if 'ltable_' in col]
+            rtable_cols = [col for col in combined_df.columns if 'rtable_' in col]
+            
+            A = combined_df[ltable_cols]
+            A.columns = [col.replace('ltable_', '') for col in ltable_cols]
+            A = A.rename(columns={'id': 'ltable_id'})
+            A.to_csv('A.csv', index=False)
 
-        B = combined_df[rtable_cols]
-        B.columns = [col.replace('rtable_', '') for col in rtable_cols]
-        B = B.rename(columns={'id': 'rtable_id'})
-        B.to_csv('B.csv', index=False)
+            B = combined_df[rtable_cols]
+            B.columns = [col.replace('rtable_', '') for col in rtable_cols]
+            B = B.rename(columns={'id': 'rtable_id'})
+            B.to_csv('B.csv', index=False)
 
         A = em.read_csv_metadata('A.csv', key='ltable_id')
         B = em.read_csv_metadata('B.csv', key='rtable_id')
