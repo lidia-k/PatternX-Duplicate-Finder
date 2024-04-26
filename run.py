@@ -1,4 +1,7 @@
 import argparse
+import joblib
+
+import pandas as pd 
 
 #from DF_adventureworks.duplicate_finder import DuplicateFinder
 from src.modelling.model_evaluation import PenumbraEvaluation
@@ -9,12 +12,12 @@ from src.preprocessing.data_preprocessing import PenumbraDataPreprocessor
 from src.preprocessing.feature_engineering import PenumbraFeatureEnginner
 from src.DF_penumbra.data_loader import Neo4jDataLoader
 from src.DF_penumbra.data_prepocessor import DataPreprocessor
-#from src.DF_penumbra.npi_vaildator import NPIValidator
+from src.DF_penumbra.npi_vaildator import NPIValidator
 from src.DF_penumbra.edge_builder import EdgeBuilder
 from src.DF_penumbra.training_magellan import MagellanTrainer
 import src.utils.auto_config as config 
-import pandas as pd 
 import src.lib.deepmatcher as dm
+
 
 if __name__ == '__main__':
     choices = ['adventureworks', 'penumbra']
@@ -131,26 +134,43 @@ if __name__ == '__main__':
         model2 = model_evaluation.load_model(config.MODEL_FOLDER +"retrained_model.pth")
         
         model_evaluation.compare_models(model1, model2, test)
-    elif args.project == 'penumbra':
-        print(f'Running it for {choices[1]}')
-        
+    elif args.project == 'penumbra' and args.task == 'neo4j':      
         data_dir = 'src/data'
 
         print('Loading data to Neo4j')
         dl = Neo4jDataLoader(data_dir)
-        #dl.load_csv_to_neo4j()
+        dl.load_csv_to_neo4j()
 
         print('Building edges and master nodes for obvious duplicates')
         eb = EdgeBuilder()
-        #eb.handle_o_dups()
+        eb.handle_o_dups()
+
+    elif args.project == 'penumbra' and args.task == 'm_training':
+        data_dir = 'src/data'
 
         print('Preparing training data...')
         dp = DataPreprocessor(data_dir)
-        ltable, rtable, training_data = dp.prepare_training_data()
+        ltable, rtable, data = dp.prepare_training_data(skewed_factor=2)
 
         print('Training Magellan model...')
-        mt = MagellanTrainer(ltable, rtable, training_data)
-        mt.train_model()
+        mt = MagellanTrainer(ltable, rtable, data, training=True)
+        model = mt.train_model()
+        preds = mt.predict(model)
+        mt.evaluate(preds)
+
+    elif args.project == 'penumbra' and args.task == 'm_pred':    
+        data_dir = 'src/data'
+        
+        print('Running predictions with the trained model...')
+        data = pd.read_csv('dropped.csv')
+        dp = DataPreprocessor(data_dir)
+        dp._split_tables(data)
+        A, B, C = dp._load_data()
+        
+        mt = MagellanTrainer(A, B, C)
+        model = joblib.load('model.pkl')
+        mt.predict(model, C)
+
         #NPIValidator().validate_NPIs()
     
     
