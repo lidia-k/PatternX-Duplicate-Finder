@@ -68,7 +68,7 @@ class DataPreprocessor:
         #df = df.loc[:, ['label', 'ltable_uid', 'rtable_uid', 'ltable_npi', 'rtable_npi', 'ltable_fullname', 'rtable_fullname']]
         return df
 
-    def _build_non_matching_pairs(self, limit=100):
+    def _build_non_matching_pairs(self, limit):
         """
         For nodes that have different npis, create a non-matching pair.
         """
@@ -92,13 +92,16 @@ class DataPreprocessor:
         
         int_cols = ['ltable_' + col for col in constants.INT_COLS] + ['rtable_' + col for col in constants.INT_COLS]
         paired_df = process_int_cols(paired_df, int_cols)
-
         paired_df.replace(0, np.nan, inplace=True)
-        paired_df['label'] = 0
-        paired_df = paired_df.sample(n=limit, random_state=1)
 
-        print(f'The number of non-matching pairs:', len(paired_df))
-        return paired_df
+        sample_df = paired_df.sample(n=limit, random_state=1)
+        sample_df['label'] = 0
+        
+        dropped_df = paired_df.drop(sample_df.index)
+        dropped_df.to_csv('dropped.csv', index=False)
+
+        print(f'The number of non-matching pairs:', len(sample_df))
+        return sample_df, dropped_df
        
     def _build_matching_pairs(self):
         edge_types = ['r1_' + et for et in constants.EDGE_TYPES]
@@ -114,37 +117,31 @@ class DataPreprocessor:
         print(f'The number of matching pairs:', len(df))
         return df
         
-    def prepare_training_data(self, skewed_factor=5):
+    def _split_tables(self, df):
         """
-        Label the pairs as matching or non-matching and prepare the training data. 
+        Split the data into A, B, and C tables.
         """
-        file_paths = ['A.csv', 'B.csv', 'C.csv']
-        if not all(os.path.isfile(file) for file in file_paths):
-            matching_df = self._build_matching_pairs()
-            limit = len(matching_df) * skewed_factor
-            non_matching_df = self._build_non_matching_pairs(limit=limit)
+        df = shuffle(df, random_state=1).reset_index(drop=True)
+        df['id'] = df.index
+        df['ltable_id'] = df['id']
+        df['rtable_id'] = df['id']
+        #combined_df = combined_df.loc[:, ['label', 'ltable_uid', 'rtable_uid', 'ltable_npi', 'rtable_npi', 'ltable_fullname', 'rtable_fullname']]
+        df.to_csv('C.csv', index=False)
 
-            combined_df = pd.concat([matching_df, non_matching_df], sort=False)
-            combined_df = shuffle(combined_df, random_state=1).reset_index(drop=True)
-            combined_df['id'] = combined_df.index
-            combined_df['ltable_id'] = combined_df['id']
-            combined_df['rtable_id'] = combined_df['id']
-            #combined_df = combined_df.loc[:, ['label', 'ltable_uid', 'rtable_uid', 'ltable_npi', 'rtable_npi', 'ltable_fullname', 'rtable_fullname']]
-            combined_df.to_csv('C.csv', index=False)
+        ltable_cols = [col for col in df.columns if 'ltable_' in col]
+        rtable_cols = [col for col in df.columns if 'rtable_' in col]
+        
+        A = df[ltable_cols]
+        A.columns = [col.replace('ltable_', '') for col in ltable_cols]
+        A = A.rename(columns={'id': 'ltable_id'})
+        A.to_csv('A.csv', index=False)
 
-            ltable_cols = [col for col in combined_df.columns if 'ltable_' in col]
-            rtable_cols = [col for col in combined_df.columns if 'rtable_' in col]
-            
-            A = combined_df[ltable_cols]
-            A.columns = [col.replace('ltable_', '') for col in ltable_cols]
-            A = A.rename(columns={'id': 'ltable_id'})
-            A.to_csv('A.csv', index=False)
-
-            B = combined_df[rtable_cols]
-            B.columns = [col.replace('rtable_', '') for col in rtable_cols]
-            B = B.rename(columns={'id': 'rtable_id'})
-            B.to_csv('B.csv', index=False)
-
+        B = df[rtable_cols]
+        B.columns = [col.replace('rtable_', '') for col in rtable_cols]
+        B = B.rename(columns={'id': 'rtable_id'})
+        B.to_csv('B.csv', index=False)
+    
+    def _load_data(self):
         A = em.read_csv_metadata('A.csv', key='ltable_id')
         B = em.read_csv_metadata('B.csv', key='rtable_id')
         C = em.read_csv_metadata(
@@ -152,6 +149,21 @@ class DataPreprocessor:
             fk_ltable='ltable_id', fk_rtable='rtable_id'
         )
         return A, B, C
+
+    def prepare_training_data(self, skewed_factor=5):
+        """
+        Label the pairs as matching or non-matching and prepare the training data. 
+        """
+        matching_df = self._build_matching_pairs()
+        
+        limit = len(matching_df) * skewed_factor
+        non_matching_df, _ = self._build_non_matching_pairs(limit=limit)
+        matching_df = matching_df[non_matching_df.columns]
+        
+        combined_df = pd.concat([matching_df, non_matching_df], sort=False)
+        self._split_tables(combined_df)
+
+        return self._load_data()
 
     @classmethod
     def _build_text(self, node):
