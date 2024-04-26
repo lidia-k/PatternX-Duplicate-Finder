@@ -32,7 +32,7 @@ class NPIValidator:
             RETURN n.npi, n.id
             '''
         result = session.run(query).data()
-        print(f'NPIs larger than 10 digits: {result}')   
+        print(f'{len(result)} NPIs larger than 10 digits: {result}')   
 
     def validate_NPIs(self):
         driver = self.graph.get_driver()
