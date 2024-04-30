@@ -163,6 +163,10 @@ if __name__ == '__main__':
         
         print('Running predictions with the trained model...')
         data = pd.read_csv('dropped.csv')
+        # mask npis 
+        #data['ltable_npi'] = np.nan
+        #data['rtable_npi'] = np.nan
+
         dp = DataPreprocessor(data_dir)
         dp._split_tables(data)
         A, B, C = dp._load_data()
@@ -170,8 +174,9 @@ if __name__ == '__main__':
         mt = MagellanTrainer(A, B, C)
         model = joblib.load('model.pkl')
         mt.predict(model, C)
-
-        #NPIValidator().validate_NPIs()
+    
+    elif args.project == 'penumbra' and args.task == 'npi':
+        NPIValidator().validate_NPIs()
     
     
 
