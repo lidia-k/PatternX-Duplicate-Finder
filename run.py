@@ -1,16 +1,23 @@
 import argparse
+import joblib
+
+import pandas as pd 
 
 #from DF_adventureworks.duplicate_finder import DuplicateFinder
+from src.modelling.model_evaluation import PenumbraEvaluation
 from src.modelling.model_deployment import PenumbraModelDeployer
 from src.data.data_collection import PenumbraDataCollector
 from src.modelling.model_trainining import PenumbraModelTrainer
 from src.preprocessing.data_preprocessing import PenumbraDataPreprocessor
 from src.preprocessing.feature_engineering import PenumbraFeatureEnginner
-from src.DF_penumbra.data_processor import DataProcessor
+from src.DF_penumbra.data_loader import Neo4jDataLoader
+from src.DF_penumbra.data_prepocessor import DataPreprocessor
 from src.DF_penumbra.npi_vaildator import NPIValidator
-from src.DF_penumbra.duplicate_finder import DuplicateFinder
+from src.DF_penumbra.edge_builder import EdgeBuilder
+from src.DF_penumbra.training_magellan import MagellanTrainer
 import src.utils.auto_config as config 
-import pandas as pd 
+import src.lib.deepmatcher as dm
+
 
 if __name__ == '__main__':
     choices = ['adventureworks', 'penumbra']
@@ -62,9 +69,9 @@ if __name__ == '__main__':
         model = trainer.train_model(df)
         
     elif args.project == 'penumbra' and args.task == 'online_train':
-        print(f"model name: {args.model}  online training...")
+        print(f"model name: {args.model} data file: {args.data}  online training...")
         model = PenumbraModelDeployer.__new__(PenumbraModelDeployer).deploy_model(config.MODEL_FOLDER + args.model).model
-        data_file = config.DATA_DIR + "/wrong_prediction.csv"
+        data_file = config.DATA_DIR + args.data
         
         trainer = PenumbraModelTrainer()
         trainer.online_training(model, data_file)
@@ -112,17 +119,59 @@ if __name__ == '__main__':
        'rtable_SAP Entity Name', 'label']
         
         wrong_predictions[online_learning_selected_columns].to_csv(write_path, index = False)
+    elif args.project == 'penumbra' and args.task == 'eval':
+        print("Evaluating model...")
+        train, validation, test = dm.data.process(
+            path=config.DATA_DIR,
+            train='train.csv',
+            validation='valid.csv',
+            test='test.csv',
+            use_magellan_convention=True
+        ) 
+
+        model_evaluation = PenumbraEvaluation()
+        model1 = model_evaluation.load_model(config.MODEL_FOLDER +"model.pth")
+        model2 = model_evaluation.load_model(config.MODEL_FOLDER +"retrained_model.pth")
         
-    elif args.project == 'penumbra':
-        print(f'Running it for {choices[1]}')
+        model_evaluation.compare_models(model1, model2, test)
+    elif args.project == 'penumbra' and args.task == 'neo4j':      
+        data_dir = 'src/data'
+
+        print('Loading data to Neo4j')
+        dl = Neo4jDataLoader(data_dir)
+        dl.load_csv_to_neo4j()
+
+        print('Building edges and master nodes for obvious duplicates')
+        eb = EdgeBuilder()
+        eb.handle_o_dups()
+
+    elif args.project == 'penumbra' and args.task == 'm_training':
+        data_dir = 'src/data'
+
+        print('Preparing training data...')
+        dp = DataPreprocessor(data_dir)
+        ltable, rtable, data = dp.prepare_training_data(skewed_factor=2)
+
+        print('Training Magellan model...')
+        mt = MagellanTrainer(ltable, rtable, data, training=True)
+        model = mt.train_model()
+        preds = mt.predict(model)
+        mt.evaluate(preds)
+
+    elif args.project == 'penumbra' and args.task == 'm_pred':    
+        data_dir = 'src/data'
         
-        dp = DataProcessor()
-        #dp.import_csv_to_neo4j()
-        #dp.add_text_props()
+        print('Running predictions with the trained model...')
+        data = pd.read_csv('dropped.csv')
+        dp = DataPreprocessor(data_dir)
+        dp._split_tables(data)
+        A, B, C = dp._load_data()
         
+        mt = MagellanTrainer(A, B, C)
+        model = joblib.load('model.pkl')
+        mt.predict(model, C)
+
         #NPIValidator().validate_NPIs()
-        
-        df = DuplicateFinder()
-        #df.process_o_dups() # Obvious duplicates
-        #df.lookup_o_dups()
-        df.similarity_search()
+    
+    
+

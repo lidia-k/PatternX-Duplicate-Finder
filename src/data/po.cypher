@@ -7,7 +7,7 @@ CREATE (p:Provider {{
     payments_to: row.payments_to, 
     sap_no: toInteger(row.sap_no), 
     sap_name: row.sap_name, 
-    state1: row.state1, 
+    state: row.state, 
     state2: row.state2, 
     country: row.country,
     npi: toInteger(row.npi),

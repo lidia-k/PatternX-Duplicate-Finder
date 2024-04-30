@@ -54,11 +54,7 @@ docker run --name testneo4j -p7474:7474 -p7687:7687 -d \
     neo4j:latest
 ```
 
-<<<<<<< HEAD
-## Build Neo4j database from the Synthea dataset
-=======
 ### Build Neo4j database from the Synthea dataset
->>>>>>> df_calvin
 
 Run `python build_database_from_FHIR.py` from /GNN_on_FHIR directory. To run the script successfully, the neo4j container should be running locally and the following environment variables need to be set. Please double check if the dataset path is correctly set in the script. 
 
@@ -70,11 +66,8 @@ Run `python build_database_from_FHIR.py` from /GNN_on_FHIR directory. To run the
 
 _TODO: The current code is creating a edge type for every single edge, which exponentially increases the total number of edge types. This part of the code (`FHIR_to_graph.py/resource_to_edges`) needs to be updated to only create a new edge type for a unique relationship between two node types._
 
-<<<<<<< HEAD
-## Create datapoints from the Neo4j database
-=======
+
 ### Create datapoints from the Neo4j database
->>>>>>> df_calvin
 
 Run `python build_datapoints_from_db` from /GNN_on_FHIR directory.
 The Neo4j container that has all the data loaded should be running locally. 
@@ -82,67 +75,76 @@ The Neo4j container that has all the data loaded should be running locally.
 Running this script successfully creates /preprocessed_datapoints directory with the pickle files in it. 
 The code also creates `db_info.json` that maps all the node types and edge types to unique numbers as well as a list of features for each node type.  
 
-<<<<<<< HEAD
-
-=======
 ## Penumbra 
 
 ### Run Neo4J
 
-You first need to pull a Neo4j docker image and run a docker container for Neo4j on /src directory.
+To start, you need to pull the Neo4j Docker image and run a container. Execute the following commands in your terminal from the root directory of the project:
 ```
 docker pull neo4j
 
 docker run \
     --name neo4j \
     -p 7474:7474 -p 7687:7687 \
-    -v $PWD/data:/var/lib/neo4j/import/data \
+    -v $PWD/src/data:/var/lib/neo4j/import/src/data \
     -e NEO4J_AUTH=neo4j/password \
-    --env NEO4J_PLUGINS='["graph-data-science"]' \
+    -e NEO4J_apoc_export_file_enabled=true \
+    -e NEO4J_apoc_import_file_enabled=true \
+    -e NEO4J_apoc_import_file_use__neo4j__config=true \
+    --env NEO4J_PLUGINS='["graph-data-science", "apoc"]' \
     -d neo4j:latest
 ```
 
-### How to run the duplicate finder 
+### Traditional ML Approach 
 
-Depending on which step you want to implement, you can adjust the run file, and run `python3 run.py penumbra`
+**Preprocess and Load Data**
 
-**Step 1. Process and load the csv files to Neo4J.**
+- Input: Save each sheet from the original Excel files as separate CSV files in /src/data..
+- Usage: `python3 run.py --project penumbra --task neo4j`
+- Method:
+    1) Create an edge between two nodes if their properties exactly match. The edge types created are: npi, fullname_email, fullname_sap_no, and fullname_qb_id, identifying "obvious duplicates."
+    2) For each cluster of connected nodes, create a "master node" containing all properties of the connected nodes. (The master node is created for the RAG approach.)
+- Output: Check the Neo4j GUI at localhost:7474 to confirm the data is loaded correctly, showing three types of nodes (Master, Provider, Speaker) and five types of edges.
 
-- Input: The original csv files and the cypher files should reside in /src/data.
-- Usage: `DataProcessor().import_csv_to_neo4j()` and `DataProcessor().add_text_props` in the run file. 
-- Output: Check Neo4j GUI (localhost:7474) to see there is data loaded properly.  
-There should be a text property for all the nodes that summarize the properties.
-The text properties will be used for similary search, by using a language model.
+**Prepare Training Data and Train Decision Tree Model**
 
-**Step 2. Validate NPIs and names against the government registry.** 
+- Input: Data stored in Neo4J.
+- Usage: `python3 run.py --project penumbra --task m_training`
+- Method: 
+    1) Use NPIs to create matching (label 1) and non-matching (label 0) pairs of nodes. A total of 5925 matching pairs are labeled.
+    2) Train and evaluate a decision tree model using the py_entitymatching library.
+- Output: Evaluation results are printed.
+
+**Test the Model**
+
+- Input: Test data
+- Usage: `python3 run.py --project penumbra --task m_pred`
+- Method: Use a subset of nodes with non-matching NPIs as test data. 
+
+### NPI Validation & RAG Approach 
+
+**Validate NPIs and Names** 
 
 - Input: NPI numbers and full names from Neo4J
-- Usage: `NPIValidator().validate_NPIs()` in the run file.
+- Usage: `python3 run.py --project penumbra --task npi`
 - Method: 
+    1) Verify that each NPI has 10 digits.
+    2) Check the existence of the NPI and match names against the Government NPI Registry using the Levenshtein Distance from FuzzyWuzzy.
     1) Check if an NPI is 10 digits. 
-    2) Check if the number exists and names match against [the gov NPI Registry](https://npiregistry.cms.hhs.gov/search). 
-       We're using Levenshtein Distance from FuzzyWuzzy to calculate the differences between names. 
-- Output: `npi_val.txt` file is created, recording all the results. 
+    2) Check if the NPI exists and match names against [the gov NPI Registry](https://npiregistry.cms.hhs.gov/search), using Levenshtein Distance from FuzzyWuzzy.
+- Output:   Creates npi_val.txt, recording all results.
 
-**Step 3. Find obvious duplicates (aka round 1)**
-
-- Input: The data in Neo4J
-- Usage: `DuplicateFinder().process_o_dups()`
-- Method:
-    1) Create an edge between two nodes if their properties are exact matches. The edge types we create are: npi, fullname_email, fullname_sap_no, and fullname_qb_id. We define those nodes "obvious duplicates."
-    2) For each cluster of connected nodes, we create a master node that contains all the properties of the connected nodes. For the second round of duplicate detection, we will only use this master node from each cluster. 
-- Output: Edges created between obvious duplicate nodes, and master nodes for each cluster.  
-
-**Step 4. Do RAG with a language model. (aka round 2)** 
+**RAG with a Language Model.** 
 
 - Usage: `DuplicateFinder().similarity_search()`
 - Method: 
-    1) Generate embeddings for text properties of all the master nodes and other nodes that aren't connected by using a setence transformer. 
-    2) Do similarity search by using langchain provided Neo4J vector store.
-- Output: `similarity_search.csv` gets created and contains the results of similar nodes above the score 0.96 
+    1) Generate embeddings for text properties of all master nodes and other unconnected nodes using a setence transformer. 
+    2) Perform similarity search by using Neo4J vector storage provided by langchain.
+- Output: `similarity_search.csv`containing results of similar nodes above the score threshold of 0.96.
+
 
 ### Training and prediction with DeepLearning
  - training: `python run.py --project penumbra --task train`
  - prediction: `python run.py --project penumbra --task predict --model demo_model.pth --data new_data.csv`
- - online training: `python run.py --project penumbra --task online_train --model model.pth`
->>>>>>> df_calvin
+ - online training: `python run.py --project penumbra --task online_train --model model.pth --data wrong_prediction.csv`
+
