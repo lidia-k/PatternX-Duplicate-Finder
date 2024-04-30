@@ -99,6 +99,8 @@ docker run \
 
 **Preprocess and Load Data**
 
+We've set up a Neo4j server on an EC2 instance, with the database already populated with data. You can access the Neo4j Browser by navigating to the server's IP address. To connect to the database, update the .env file with the appropriate configuration settings.
+
 - Input: Save each sheet from the original Excel files as separate CSV files in /src/data..
 - Usage: `python3 run.py --project penumbra --task neo4j`
 - Method:
@@ -106,12 +108,13 @@ docker run \
     2) For each cluster of connected nodes, create a "master node" containing all properties of the connected nodes. (The master node is created for the RAG approach.)
 - Output: Check the Neo4j GUI at localhost:7474 to confirm the data is loaded correctly, showing three types of nodes (Master, Provider, Speaker) and five types of edges.
 
+
 **Prepare Training Data and Train Decision Tree Model**
 
 - Input: Data stored in Neo4J.
 - Usage: `python3 run.py --project penumbra --task m_training`
 - Method: 
-    1) Use NPIs to create matching (label 1) and non-matching (label 0) pairs of nodes. A total of 5925 matching pairs are labeled.
+    1) Use obvious duplicates to create matching (label 1) and non-matching (label 0) pairs of nodes. A total of 5925 matching pairs are labeled.
     2) Train and evaluate a decision tree model using the py_entitymatching library.
 - Output: Evaluation results are printed.
 
