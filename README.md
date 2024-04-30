@@ -79,7 +79,9 @@ The code also creates `db_info.json` that maps all the node types and edge types
 
 ### Run Neo4J
 
-To start, you need to pull the Neo4j Docker image and run a container. Execute the following commands in your terminal from the root directory of the project:
+We've set up a Neo4j server on an EC2 instance, with the database already populated with data. You can access the Neo4j Browser by navigating to the server's IP address. To connect to the database, update the .env file with the appropriate configuration settings.
+
+To run Neo4j locally, you need to pull the Neo4j Docker image and run a container. Execute the following commands in your terminal from the root directory of the project:
 ```
 docker pull neo4j
 
@@ -97,9 +99,7 @@ docker run \
 
 ### Traditional ML Approach 
 
-**Preprocess and Load Data**
-
-We've set up a Neo4j server on an EC2 instance, with the database already populated with data. You can access the Neo4j Browser by navigating to the server's IP address. To connect to the database, update the .env file with the appropriate configuration settings.
+**Preprocess and Load Data (Skip This Step)**
 
 - Input: Save each sheet from the original Excel files as separate CSV files in /src/data..
 - Usage: `python3 run.py --project penumbra --task neo4j`
@@ -107,7 +107,6 @@ We've set up a Neo4j server on an EC2 instance, with the database already popula
     1) Create an edge between two nodes if their properties exactly match. The edge types created are: npi, fullname_email, fullname_sap_no, and fullname_qb_id, identifying "obvious duplicates."
     2) For each cluster of connected nodes, create a "master node" containing all properties of the connected nodes. (The master node is created for the RAG approach.)
 - Output: Check the Neo4j GUI at localhost:7474 to confirm the data is loaded correctly, showing three types of nodes (Master, Provider, Speaker) and five types of edges.
-
 
 **Prepare Training Data and Train Decision Tree Model**
 
