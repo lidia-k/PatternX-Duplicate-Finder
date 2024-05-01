@@ -135,7 +135,10 @@ if __name__ == '__main__':
         model2 = model_evaluation.load_model(config.MODEL_FOLDER +"retrained_model.pth")
         
         model_evaluation.compare_models(model1, model2, test)
-    elif args.project == 'penumbra' and args.task == 'neo4j':      
+    elif args.project == 'penumbra' and args.task == 'neo4j': 
+        """
+        Load the data to Neo4j and build edges for obvious duplicates.
+        """     
         data_dir = 'src/data'
 
         print('Loading data to Neo4j')
@@ -147,6 +150,14 @@ if __name__ == '__main__':
         eb.handle_o_dups()
 
     elif args.project == 'penumbra' and args.task == 'm_training':
+        """
+        Prepare the training data, train the Magellan model, and evaluate the model.
+        
+        Output:
+        - A model.pkl file will be saved.
+        - A droped.csv file will be saved. 
+        ('droppep.csv' contains the test data that has pairs with non-matching NPIs and isn't used for training.)
+        """
         data_dir = 'src/data'
 
         print('Preparing training data...')
@@ -156,10 +167,22 @@ if __name__ == '__main__':
         print('Training Magellan model...')
         mt = MagellanTrainer(ltable, rtable, data, training=True)
         model = mt.train_model()
-        preds = mt.predict(model)
+
+        print('Evaluating the model...')
+        preds = mt.predict()
         mt.evaluate(preds)
 
-    elif args.project == 'penumbra' and args.task == 'm_pred':    
+        print('Displaying feature importance...')
+        mt.retrieve_feature_importance()
+
+    elif args.project == 'penumbra' and args.task == 'test1':  
+        """
+        Prerequisits: 
+        - model.pkl file should be available from the training.
+        - dropped.csv file should be available from the training.
+
+        Run predictions on the test data and the same data with NPIs removed.
+        """  
         data_dir = 'src/data'
         model = joblib.load('model.pkl')
         dp = DataPreprocessor(data_dir)
@@ -170,8 +193,8 @@ if __name__ == '__main__':
         dp._split_tables(data)
         A, B, C = dp._load_data()
         
-        mt = MagellanTrainer(A, B, C)
-        preds = mt.predict(model, C)
+        mt = MagellanTrainer(A, B, C, model)
+        preds = mt.predict(C)
         print(f'False negatives: {(preds["predicted"] == 1).sum()} (out of {len(preds)} negative predictions)')
         
         print('Running predictions on the label 0 test data with NPIs removed...')
@@ -182,11 +205,11 @@ if __name__ == '__main__':
         dp._split_tables(data)
         A, B, C = dp._load_data()
         
-        mt = MagellanTrainer(A, B, C)
-        preds = mt.predict(model, C)
+        mt = MagellanTrainer(A, B, C, model)
+        preds = mt.predict(C)
         print(f'False negatives when NPIs are masked: {(preds["predicted"] == 1).sum()} (out of {len(preds)} negative predictions)')
     
-    elif args.project == 'penumbra' and args.task == 'test':
+    elif args.project == 'penumbra' and args.task == 'test2':
         data_dir = 'src/data'
         model = joblib.load('model.pkl')
         dp = DataPreprocessor(data_dir)
@@ -195,11 +218,20 @@ if __name__ == '__main__':
         dp._split_tables(df)
         A, B, C = dp._load_data()
 
-        mt = MagellanTrainer(A, B, C)
-        preds = mt.predict(model, C)
+        mt = MagellanTrainer(A, B, C, model)
+        preds = mt.predict(C)
+        mt.retrieve_feature_importance()
+    
+    elif args.project == 'penumbra' and args.task == 'feature':
+        model = joblib.load('model.pkl')
+        data_dir = 'src/data'
+
+        mt = MagellanTrainer(model=model)
+        mt.retrieve_feature_importance()
     
     elif args.project == 'penumbra' and args.task == 'npi':
         NPIValidator().validate_NPIs()
+
     
     
 
