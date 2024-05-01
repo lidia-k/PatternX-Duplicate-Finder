@@ -2,6 +2,7 @@ import argparse
 import joblib
 
 import pandas as pd 
+import numpy as np
 
 #from DF_adventureworks.duplicate_finder import DuplicateFinder
 from src.modelling.model_evaluation import PenumbraEvaluation
@@ -160,20 +161,42 @@ if __name__ == '__main__':
 
     elif args.project == 'penumbra' and args.task == 'm_pred':    
         data_dir = 'src/data'
-        
-        print('Running predictions with the trained model...')
-        data = pd.read_csv('dropped.csv')
-        # mask npis 
-        #data['ltable_npi'] = np.nan
-        #data['rtable_npi'] = np.nan
-
+        model = joblib.load('model.pkl')
         dp = DataPreprocessor(data_dir)
+
+        print('Running predictions on the label 0 test data...')
+        data = pd.read_csv('dropped.csv')
+
         dp._split_tables(data)
         A, B, C = dp._load_data()
         
         mt = MagellanTrainer(A, B, C)
+        preds = mt.predict(model, C)
+        print(f'False negatives: {(preds["predicted"] == 1).sum()} (out of {len(preds)} negative predictions)')
+        
+        print('Running predictions on the label 0 test data with NPIs removed...')
+        # mask npis 
+        data['ltable_npi'] = np.nan
+        data['rtable_npi'] = np.nan
+
+        dp._split_tables(data)
+        A, B, C = dp._load_data()
+        
+        mt = MagellanTrainer(A, B, C)
+        preds = mt.predict(model, C)
+        print(f'False negatives when NPIs are masked: {(preds["predicted"] == 1).sum()} (out of {len(preds)} negative predictions)')
+    
+    elif args.project == 'penumbra' and args.task == 'test':
+        data_dir = 'src/data'
         model = joblib.load('model.pkl')
-        mt.predict(model, C)
+        dp = DataPreprocessor(data_dir)
+
+        df = dp.prepare_test_data()
+        dp._split_tables(df)
+        A, B, C = dp._load_data()
+
+        mt = MagellanTrainer(A, B, C)
+        preds = mt.predict(model, C)
     
     elif args.project == 'penumbra' and args.task == 'npi':
         NPIValidator().validate_NPIs()
