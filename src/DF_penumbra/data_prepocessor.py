@@ -201,6 +201,9 @@ class DataPreprocessor:
         result.extend(non_matching_result)
 
         df = self._create_df(result)
+        df.drop(columns=['label'], inplace=True)
+        #df[['ltable_fullname', 'rtable_fullname',
+        #    'ltable_email', 'rtable_email', 'ltable_sap_no', 'rtable_sap_no']].to_csv('test.csv', index=False)
         return df
 
     @classmethod
