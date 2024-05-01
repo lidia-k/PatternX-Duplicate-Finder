@@ -2,6 +2,8 @@ import joblib
 import sys
 
 import dill
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import py_entitymatching as em
 
@@ -16,13 +18,15 @@ class MagellanTrainer:
     attrs_after = None
     exclude_attrs = ['id', 'ltable_id', 'rtable_id']
 
-    def __init__(self, ltable, rtable, data, training=False):
+    def __init__(self, ltable=None, rtable=None, data=None, model=None, training=False):
         self.ltable = ltable
         self.rtable = rtable
 
         self.data = data
-        self.train_set, self.test_set = self._split_data()
+        if training: 
+            self.train_set, self.test_set = self._split_data()
 
+        self.model = model 
         self.feature_table = self._load_feature_table(training)
 
     def _load_feature_table(self, training):
@@ -90,23 +94,39 @@ class MagellanTrainer:
             target_attr='label'
         )
         joblib.dump(self.dt, 'model.pkl')
-        return self.dt
-    
-    def predict(self, model, data=None):
+        self.model = self.dt
+
+    def predict(self, data=None):
         if data is None:
             data = self.test_set
 
         f_vectors = self._create_features(data)
-        predictions = model.predict(
+        predictions = self.model.predict(
             table=f_vectors, 
             exclude_attrs=self.exclude_attrs, 
             append=True, target_attr='predicted', inplace=False
         )
 
         merge_df = data.merge(predictions[['id', 'predicted']], on='id', how='left')
+        merge_df = merge_df[['id', 'predicted', 'ltable_fullname', 'rtable_fullname', 
+                             'ltable_email', 'rtable_email', 'ltable_sap_no', 'rtable_sap_no']]
         merge_df.to_csv('predictions.csv', index=False)
         return predictions
      
     def evaluate(self, predictions):
         eval_result = em.eval_matches(predictions, 'label', 'predicted')
         em.print_eval_summary(eval_result)
+    
+    def retrieve_feature_importance(self):
+        importances = self.model.clf.feature_importances_
+        feature_names = self.feature_table['feature_name'].values
+        
+        plt.figure(figsize=(10, 15))
+        indices = np.argsort(importances)[::-1][:30]
+
+        plt.title('Feature Importances in Decision Tree')
+        plt.barh(range(len(indices)), importances[indices], color='b', align='center')
+        plt.yticks(range(len(indices)), [feature_names[i] for i in indices])
+        plt.xlabel('Relative Importance')
+        plt.show()
+        
