@@ -40,10 +40,11 @@ class DataPreprocessor:
             if missing_percentage > missing_percentage_threshold:
                 print(f'{prop_name} has {missing_percentage}% missing values')
 
-    def _create_df(self, result, label):
+    def _create_df(self, result, label=0):
         node_pairs = [(record[0], record[1]) for record in result]
 
         all_props = set()
+        all_props.update(['lic_state', 'title', 'license'])
         for node_a, node_b in node_pairs:
             all_props.update(dict(node_a).keys())
             all_props.update(dict(node_b).keys())
@@ -104,6 +105,18 @@ class DataPreprocessor:
         return sample_df, dropped_df
        
     def _build_matching_pairs(self):
+        """
+        Retrieves pairs of nodes connected by specified types of edges.
+
+        It uses a Cypher query to find all node pairs (a, b) such that:
+        - There is a specified type of edge from node a to node b.
+        - The 'uid' of node a is not equal to the 'uid' . of node b.
+        - The query returns distinct node pairs to ensure no duplicates.
+       
+        Returns:
+            pandas.DataFrame: 
+            A DataFrame containing the distinct pairs of nodes that match the criteria, with a column labeled '1'.
+        """
         edge_types = ['r1_' + et for et in constants.EDGE_TYPES]
         q = f'''
         UNWIND {edge_types} AS type
@@ -164,6 +177,31 @@ class DataPreprocessor:
         self._split_tables(combined_df)
 
         return self._load_data()
+    
+    def prepare_test_data(self):
+        result = []
+        props = ['email', 'sap_no']
+        for prop in props:
+            matching_q = f'''
+            MATCH (a), (b)
+            WHERE a.{prop} = b.{prop} AND a <> b AND NOT (a)-[]-(b)
+            RETURN DISTINCT a, b
+            LIMIT 20
+            '''
+            matching_result = self.graph.cypher_transaction(matching_q)
+            result.extend(matching_result)
+        
+        non_matching_q = '''
+        MATCH (a), (b)
+        WHERE a.email <> b.email AND a.sap_no = b.sap_no AND a <> b AND NOT (a)-[]-(b)
+        RETURN DISTINCT a, b
+        LIMIT 10 
+        '''
+        non_matching_result = self.graph.cypher_transaction(non_matching_q)
+        result.extend(non_matching_result)
+
+        df = self._create_df(result)
+        return df
 
     @classmethod
     def _build_text(self, node):
