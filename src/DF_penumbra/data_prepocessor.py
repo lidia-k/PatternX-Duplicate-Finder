@@ -13,13 +13,14 @@ from src.utils import auto_config as config
 
 
 class DataPreprocessor:
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, include_npi):
         self.graph = Graph(
             config.NEO4J_URL,
             config.NEO4J_USER,
             config.NEO4J_PASSWORD
         )
         self.data_dir = data_dir
+        self.include_npi = include_npi
     
     def detect_high_missing_features(self, missing_percentage_threshold=59.2):
         q = '''
@@ -54,6 +55,9 @@ class DataPreprocessor:
         for node_a, node_b in node_pairs:
             all_props.update(dict(node_a).keys())
             all_props.update(dict(node_b).keys())
+        
+        if not self.include_npi:
+            all_props.remove('npi')
 
         rows = []
         for node_a, node_b in node_pairs:
@@ -83,11 +87,14 @@ class DataPreprocessor:
         result = self.graph.cypher_transaction(q)
 
         df = pd.DataFrame([dict(record[0]) for record in result])
+        if not self.include_npi:
+            df.drop(columns=['npi'], inplace=True)
         
         pairs = [(df.iloc[i], df.iloc[j]) for i, j in combinations(range(len(df)), 2)]
         paired_data = []
         for left, right in pairs:
-            left_dict = {'ltable_' + col: val for col, val in left.items()}
+            left_dict = {
+                'ltable_' + col: val for col, val in left.items()}
             right_dict = {'rtable_' + col: val for col, val in right.items()}
             paired_data.append({**left_dict, **right_dict})
 

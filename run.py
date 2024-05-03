@@ -11,13 +11,11 @@ from src.data.data_collection import PenumbraDataCollector
 from src.modelling.model_trainining import PenumbraModelTrainer
 from src.preprocessing.data_preprocessing import PenumbraDataPreprocessor
 from src.preprocessing.feature_engineering import PenumbraFeatureEnginner
-from src.DF_penumbra  import constants
 from src.DF_penumbra.data_loader import Neo4jDataLoader
 from src.DF_penumbra.data_prepocessor import DataPreprocessor
 from src.DF_penumbra.edge_builder import EdgeBuilder
 from src.DF_penumbra.npi_vaildator import NPIValidator
 from src.DF_penumbra.training_magellan import MagellanTrainer
-from src.DF_penumbra.utils import process_int_cols
 import src.utils.auto_config as config 
 import src.lib.deepmatcher as dm
 
@@ -28,6 +26,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run different functions based on input parameters.')
     parser.add_argument('--project', choices=choices, type=str, help='The project to run')
     parser.add_argument("--task", type=str, default=None, help="task name:{train, predict, online_train}",  metavar='')
+    parser.add_argument("--npi", action="store_true", help="Include NPIs for training (default: exclude NPIs)")
     parser.add_argument("--model", type=str, default=None, help="model name",  metavar='')
     parser.add_argument("--data", type=str, default=None, help="data file name",  metavar='')
 
@@ -162,11 +161,11 @@ if __name__ == '__main__':
         """
         data_dir = 'src/data'
 
-        print('Preparing training data...')
-        dp = DataPreprocessor(data_dir)
+        print('Preparing training data with{} NPI...'.format('' if args.npi else 'out'))
+        dp = DataPreprocessor(data_dir, include_npi=args.npi)
         ltable, rtable, data = dp.prepare_training_data(skewed_factor=2)
 
-        print('Training Magellan model...')
+        print('Training Magellan model with{} NPI...'.format('' if args.npi else 'out'))
         mt = MagellanTrainer(ltable, rtable, data, training=True)
         mt.train_model()
 
@@ -187,31 +186,38 @@ if __name__ == '__main__':
         """  
         data_dir = 'src/data'
         model = joblib.load('model.pkl')
-        dp = DataPreprocessor(data_dir)
 
-        print('Running predictions on the label 0 test data...')
+        # If the saved model is trained without NPIs, the test data is prepared without NPIs.
         data = pd.read_csv('dropped.csv')
+        include_npi = False
+        if 'rtable_npi' in data.columns:
+            include_npi = True
+
+        dp = DataPreprocessor(data_dir, include_npi=include_npi)
         df = dp._handle_int_cols(data)
         A, B, C = dp._load_data(df)
-        
+
+        print('Running predictions on the label 0 test data with{} NPI...'.format('' if include_npi else 'out'))
         mt = MagellanTrainer(A, B, C, model)
         preds = mt.predict(C)
         print(f'False negatives: {(preds["predicted"] == 1).sum()} (out of {len(preds)} negative predictions)')
         
-        print('Running predictions on the label 0 test data with NPIs removed...')
-        # mask npis 
-        df['ltable_npi'] = np.nan
-        df['rtable_npi'] = np.nan
-        A, B, C = dp._load_data(data)
+        if include_npi:     
+            print('Running predictions on the label 0 test data with NPIs removed...')
+            # mask npis 
+            df['ltable_npi'] = np.nan
+            df['rtable_npi'] = np.nan
+            A, B, C = dp._load_data(data)
         
-        mt = MagellanTrainer(A, B, C, model)
-        preds = mt.predict(C)
-        print(f'False negatives when NPIs are masked: {(preds["predicted"] == 1).sum()} (out of {len(preds)} negative predictions)')
+            mt = MagellanTrainer(A, B, C, model)
+            preds = mt.predict(C)
+            print(f'False negatives when NPIs are masked: {(preds["predicted"] == 1).sum()} (out of {len(preds)} negative predictions)')
     
     elif args.project == 'penumbra' and args.task == 'test2':
         data_dir = 'src/data'
         model = joblib.load('model.pkl')
-        dp = DataPreprocessor(data_dir)
+        # If the model is trained with NPIs, make sure include --npi flag to the run command.
+        dp = DataPreprocessor(data_dir, include_npi=args.npi)
 
         df = dp.prepare_test_data()
         A, B, C = dp._load_data(df)
