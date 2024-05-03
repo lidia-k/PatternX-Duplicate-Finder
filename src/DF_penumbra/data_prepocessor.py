@@ -40,6 +40,12 @@ class DataPreprocessor:
             if missing_percentage > missing_percentage_threshold:
                 print(f'{prop_name} has {missing_percentage}% missing values')
 
+    def _handle_int_cols(self, df):
+        int_cols = ['ltable_' + col for col in constants.INT_COLS] + ['rtable_' + col for col in constants.INT_COLS]
+        df = process_int_cols(df, int_cols)
+        df.replace(0, np.nan, inplace=True)
+        return df
+
     def _create_df(self, result, label=0):
         node_pairs = [(record[0], record[1]) for record in result]
 
@@ -59,11 +65,7 @@ class DataPreprocessor:
             rows.append(row)
         
         df = pd.DataFrame(rows)
-        
-        int_cols = ['ltable_' + col for col in constants.INT_COLS] + ['rtable_' + col for col in constants.INT_COLS]
-        df = process_int_cols(df, int_cols)
-        
-        df.replace(0, np.nan, inplace=True)
+        df = self._handle_int_cols(df)
         df['label'] = label
 
         #df = df.loc[:, ['label', 'ltable_uid', 'rtable_uid', 'ltable_npi', 'rtable_npi', 'ltable_fullname', 'rtable_fullname']]
@@ -90,10 +92,7 @@ class DataPreprocessor:
             paired_data.append({**left_dict, **right_dict})
 
         paired_df = pd.DataFrame(paired_data)
-        
-        int_cols = ['ltable_' + col for col in constants.INT_COLS] + ['rtable_' + col for col in constants.INT_COLS]
-        paired_df = process_int_cols(paired_df, int_cols)
-        paired_df.replace(0, np.nan, inplace=True)
+        self._handle_int_cols(paired_df)
 
         sample_df = paired_df.sample(n=limit, random_state=1)
         sample_df['label'] = 0
@@ -154,7 +153,9 @@ class DataPreprocessor:
         B = B.rename(columns={'id': 'rtable_id'})
         B.to_csv('B.csv', index=False)
     
-    def _load_data(self):
+    def _load_data(self, df):
+        self._split_tables(df)
+
         A = em.read_csv_metadata('A.csv', key='ltable_id')
         B = em.read_csv_metadata('B.csv', key='rtable_id')
         C = em.read_csv_metadata(
@@ -174,9 +175,7 @@ class DataPreprocessor:
         matching_df = matching_df[non_matching_df.columns]
         
         combined_df = pd.concat([matching_df, non_matching_df], sort=False)
-        self._split_tables(combined_df)
-
-        return self._load_data()
+        return self._load_data(combined_df)
     
     def prepare_test_data(self):
         result = []
@@ -201,6 +200,7 @@ class DataPreprocessor:
         result.extend(non_matching_result)
 
         df = self._create_df(result)
+        df = self._handle_int_cols(df)
         df.drop(columns=['label'], inplace=True)
         #df[['ltable_fullname', 'rtable_fullname',
         #    'ltable_email', 'rtable_email', 'ltable_sap_no', 'rtable_sap_no']].to_csv('test.csv', index=False)

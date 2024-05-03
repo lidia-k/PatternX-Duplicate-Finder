@@ -11,11 +11,13 @@ from src.data.data_collection import PenumbraDataCollector
 from src.modelling.model_trainining import PenumbraModelTrainer
 from src.preprocessing.data_preprocessing import PenumbraDataPreprocessor
 from src.preprocessing.feature_engineering import PenumbraFeatureEnginner
+from src.DF_penumbra  import constants
 from src.DF_penumbra.data_loader import Neo4jDataLoader
 from src.DF_penumbra.data_prepocessor import DataPreprocessor
-from src.DF_penumbra.npi_vaildator import NPIValidator
 from src.DF_penumbra.edge_builder import EdgeBuilder
+from src.DF_penumbra.npi_vaildator import NPIValidator
 from src.DF_penumbra.training_magellan import MagellanTrainer
+from src.DF_penumbra.utils import process_int_cols
 import src.utils.auto_config as config 
 import src.lib.deepmatcher as dm
 
@@ -166,7 +168,7 @@ if __name__ == '__main__':
 
         print('Training Magellan model...')
         mt = MagellanTrainer(ltable, rtable, data, training=True)
-        model = mt.train_model()
+        mt.train_model()
 
         print('Evaluating the model...')
         preds = mt.predict()
@@ -189,9 +191,8 @@ if __name__ == '__main__':
 
         print('Running predictions on the label 0 test data...')
         data = pd.read_csv('dropped.csv')
-
-        dp._split_tables(data)
-        A, B, C = dp._load_data()
+        df = dp._handle_int_cols(data)
+        A, B, C = dp._load_data(df)
         
         mt = MagellanTrainer(A, B, C, model)
         preds = mt.predict(C)
@@ -199,11 +200,9 @@ if __name__ == '__main__':
         
         print('Running predictions on the label 0 test data with NPIs removed...')
         # mask npis 
-        data['ltable_npi'] = np.nan
-        data['rtable_npi'] = np.nan
-
-        dp._split_tables(data)
-        A, B, C = dp._load_data()
+        df['ltable_npi'] = np.nan
+        df['rtable_npi'] = np.nan
+        A, B, C = dp._load_data(data)
         
         mt = MagellanTrainer(A, B, C, model)
         preds = mt.predict(C)
@@ -215,8 +214,7 @@ if __name__ == '__main__':
         dp = DataPreprocessor(data_dir)
 
         df = dp.prepare_test_data()
-        dp._split_tables(df)
-        A, B, C = dp._load_data()
+        A, B, C = dp._load_data(df)
 
         mt = MagellanTrainer(A, B, C, model)
         preds = mt.predict(C)
