@@ -88,13 +88,14 @@ class MagellanTrainer:
         f_vectors = self._create_features(self.train_set)
         
         best_model = self._select_best_model(f_vectors)
-        self.dt.fit(
+        # You can choose to use the best model or a specific model
+        self.model = self.rf
+        self.model.fit(
             table=f_vectors, 
             exclude_attrs=self.exclude_attrs, 
             target_attr='label'
         )
-        joblib.dump(self.dt, 'model.pkl')
-        self.model = self.dt
+        joblib.dump(self.model, 'model.pkl')
 
     def predict(self, data=None):
         if data is None:
@@ -124,9 +125,11 @@ class MagellanTrainer:
         plt.figure(figsize=(10, 15))
         indices = np.argsort(importances)[::-1][:30]
 
-        plt.title('Feature Importances in Decision Tree')
+        plt.title(f'Feature Importance in {self.model.clf.__class__.__name__}')
         plt.barh(range(len(indices)), importances[indices], color='b', align='center')
         plt.yticks(range(len(indices)), [feature_names[i] for i in indices])
         plt.xlabel('Relative Importance')
+
+        plt.subplots_adjust(left=0.3)
         plt.show()
         
