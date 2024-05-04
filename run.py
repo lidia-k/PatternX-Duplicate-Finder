@@ -22,10 +22,12 @@ import src.lib.deepmatcher as dm
 
 if __name__ == '__main__':
     choices = ['adventureworks', 'penumbra']
+    model_choices = ['dt', 'svm', 'rf', 'lg', 'ln', 'nb']
 
     parser = argparse.ArgumentParser(description='Run different functions based on input parameters.')
     parser.add_argument('--project', choices=choices, type=str, help='The project to run')
     parser.add_argument("--task", type=str, default=None, help="task name:{train, predict, online_train}",  metavar='')
+    parser.add_argument("--magellan_model", choices=model_choices, type=str, default='dt', help="Magellan model name",  metavar='')
     parser.add_argument("--npi", action="store_true", help="Include NPIs for training (default: exclude NPIs)")
     parser.add_argument("--model", type=str, default=None, help="model name",  metavar='')
     parser.add_argument("--data", type=str, default=None, help="data file name",  metavar='')
@@ -153,7 +155,12 @@ if __name__ == '__main__':
     elif args.project == 'penumbra' and args.task == 'm_training':
         """
         Prepare the training data, train the Magellan model, and evaluate the model.
-        
+
+        Args:
+        - The --npi flag is optional. If included, the training data will include NPIs. The default is to exclude NPIs.
+        - The --magellan_model flag is optional. If included, the model will be trained with the specified model. The default is Decision Tree.
+        The model options are: Decision Tree (dt), Support Vector Machine (svm), Random Forest (rf), Logistic Regression (lg), Linear Regression (ln), and Naive Bayes (nb).
+
         Output:
         - A model.pkl file will be saved.
         - A droped.csv file will be saved. 
@@ -165,8 +172,8 @@ if __name__ == '__main__':
         dp = DataPreprocessor(data_dir, include_npi=args.npi)
         ltable, rtable, data = dp.prepare_training_data(skewed_factor=2)
 
-        print('Training Magellan model with{} NPI...'.format('' if args.npi else 'out'))
-        mt = MagellanTrainer(ltable, rtable, data, training=True)
+        print('Training {} with{} NPI...'.format(args.magellan_model, '' if args.npi else 'out'))
+        mt = MagellanTrainer(ltable, rtable, data, model=args.magellan_model, training=True)
         mt.train_model()
 
         print('Evaluating the model...')

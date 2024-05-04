@@ -9,12 +9,15 @@ import py_entitymatching as em
 
 
 class MagellanTrainer:
-    dt = em.DTMatcher(name='DecisionTree', random_state=0)
-    svm = em.SVMMatcher(name='SVM', random_state=0)
-    rf = em.RFMatcher(name='RF', random_state=0)
-    lg = em.LogRegMatcher(name='LogReg', random_state=0)
-    ln = em.LinRegMatcher(name='LinReg')
-    nb = em.NBMatcher(name='NaiveBayes')
+
+    matchers = {
+        'dt': em.DTMatcher(name='DecisionTree', random_state=0),
+        'svm': em.SVMMatcher(name='SVM', random_state=0),
+        'rf': em.RFMatcher(name='RF', random_state=0),
+        'lg': em.LogRegMatcher(name='LogReg', random_state=0),
+        'ln': em.LinRegMatcher(name='LinReg'),  
+        'nb': em.NBMatcher(name='NaiveBayes')
+    }
     attrs_after = None
     exclude_attrs = ['id', 'ltable_id', 'rtable_id']
 
@@ -26,8 +29,14 @@ class MagellanTrainer:
         if training: 
             self.train_set, self.test_set = self._split_data()
 
-        self.model = model 
+        self._load_model(model)
         self.feature_table = self._load_feature_table(training)
+    
+    def _load_model(self, model):
+        if type(model) == str:
+            self.model = self.matchers[model]
+        else:  
+            self.model = model  
 
     def _load_feature_table(self, training):
         if training:
@@ -67,7 +76,7 @@ class MagellanTrainer:
 
     def _select_best_model(self, f_vectors):
         result = em.select_matcher(
-            [self.dt, self.svm, self.rf, self.lg, self.ln, self.nb], 
+            [matcher for matcher in self.matchers.values()], 
             table=f_vectors, 
             exclude_attrs=['id', 'ltable_id', 'rtable_id', 'label'], 
             k=5, target_attr=self.attrs_after, 
@@ -88,8 +97,8 @@ class MagellanTrainer:
         f_vectors = self._create_features(self.train_set)
         
         best_model = self._select_best_model(f_vectors)
-        # You can choose to use the best model or a specific model
-        self.model = self.rf
+        # You can choose to use the best model or a specific model. We're currently using a specific model.
+        import pdb; pdb.set_trace()
         self.model.fit(
             table=f_vectors, 
             exclude_attrs=self.exclude_attrs, 
@@ -111,7 +120,7 @@ class MagellanTrainer:
         merge_df = data.merge(predictions[['id', 'predicted']], on='id', how='left')
         merge_df = merge_df[['id', 'predicted', 'ltable_fullname', 'rtable_fullname', 
                              'ltable_email', 'rtable_email', 'ltable_sap_no', 'rtable_sap_no']]
-        merge_df.to_csv('predictions.csv', index=False)
+        merge_df.to_csv(f'predictions_{self.model.clf.__class__.__name__}.csv', index=False)
         return predictions
      
     def evaluate(self, predictions):
