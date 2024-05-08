@@ -9,6 +9,15 @@
 #          |-- src
 #          |   |-- utils/:  penumbra.py, ...
 #          |-- notebook/:   this-file.py
+#
+# require: for linux to run deepmatcher we need python v3.9, which needs 
+#          torchtext v0.10.1.  afterwards, install these libraries in the 3.9 dir
+#          using pip3.9:
+#          matplotlib, msoffcrypto-tool, pandas, seaborn
+#          py_entitymatching  # might need to run "apt install tk-dev"
+#             else error:  ModuleNotFoundError: No module named '_tkinter'
+#          cd df-calvin; cp .env.example .env src/util/auto_config.py needs it
+#
 # method:  here are the steps:  read in data, explore data, clean npi/sap/qbid
 #          block data, label data, build model, run model
 #          Matching methods include Magellen, deepmatcher, old school (regression, 
@@ -24,7 +33,7 @@
 
 import pdb, io, sys, os, pandas as pd, numpy as np, matplotlib.pyplot as plt
 sys.path.append('../'); #  sys.path.append('../src/lib/'); sys.path.append('../src/utils/penumbra/')
-import typing as tp, seaborn as sns, msoffcrypto, py_entitymatching as em
+import typing as tp, seaborn as sns, msoffcrypto, py_entitymatching as em 
 from   itertools import combinations, permutations
 from   fastai.tabular.all import *
 from   sklearn.linear_model import LogisticRegression
@@ -33,8 +42,7 @@ from   sklearn.metrics import accuracy_score
 from   sklearn.neighbors import KNeighborsClassifier
 from   sklearn.tree import DecisionTreeClassifier
 from   xgboost import XGBClassifier
-import src.utils.auto_config as config, src.utils.penumbra as bra
-# import deepmatcher as dm
+import src.utils.auto_config as config, src.utils.penumbra as bra, deepmatcher as dm
 pd.options.display.max_columns = None
 """
 try:     import msoffcrypto
@@ -51,7 +59,7 @@ finally: import py_entitymatching as em
 
 #----------- read data --------------
 
-data_dir = '/home/snguyen/norm/dupsie/df-calvin-data/'  # f'{os.path.dirname(os.getcwd())}/data/'
+data_dir = '/home/snguyen/norm/dupsie/data/penumbra/'  # f'{os.path.dirname(os.getcwd())}/data/'
 datafile = data_dir + "hcp-manz-sn.xlsx"
 outfile  = data_dir + "edges.dat"
 decrypted_workbook = io.BytesIO()
@@ -136,7 +144,10 @@ from datetime import datetime
 print( 'start labeling:  ', datetime.now().strftime("%H:%M:%S") )
 df, label_1_df, label_0_df, full_name_duplicate_df, NPI_duplicate_df, \
     SAP_duplicate_df, QB_duplicate_df =  bra.label_duplicate_data( new_A, skewed_factor=2 ) 
+pdb.set_trace()
 print( 'end   labeling:  ', datetime.now().strftime("%H:%M:%S") )
+dafs = (df, label_1_df, label_0_df, full_name_duplicate_df, NPI_duplicate_df, SAP_duplicate_df, QB_duplicate_df)
+
 
 selected_columns = ['id','ltable_Full Name', 'rtable_Full Name',
     'ltable_National Physician ID', 'rtable_National Physician ID',
@@ -211,4 +222,4 @@ fi = rf_feat_importance(models['XGBClassifier'], models['XGBClassifier'].get_boo
 fi.plot.barh(x='cols', y='imp', rot=0)
 plt.show()
 
-
+pdb.set_trace()
