@@ -2,6 +2,7 @@ import argparse
 import joblib
 
 import pandas as pd 
+import numpy as np
 
 #from DF_adventureworks.duplicate_finder import DuplicateFinder
 from src.modelling.model_evaluation import PenumbraEvaluation
@@ -12,8 +13,8 @@ from src.preprocessing.data_preprocessing import PenumbraDataPreprocessor
 from src.preprocessing.feature_engineering import PenumbraFeatureEnginner
 from src.DF_penumbra.data_loader import Neo4jDataLoader
 from src.DF_penumbra.data_prepocessor import DataPreprocessor
-from src.DF_penumbra.npi_vaildator import NPIValidator
 from src.DF_penumbra.edge_builder import EdgeBuilder
+from src.DF_penumbra.npi_vaildator import NPIValidator
 from src.DF_penumbra.training_magellan import MagellanTrainer
 import src.utils.auto_config as config 
 import src.lib.deepmatcher as dm
@@ -21,10 +22,13 @@ import src.lib.deepmatcher as dm
 
 if __name__ == '__main__':
     choices = ['adventureworks', 'penumbra']
+    model_choices = ['dt', 'svm', 'rf', 'lg', 'ln', 'nb']
 
     parser = argparse.ArgumentParser(description='Run different functions based on input parameters.')
     parser.add_argument('--project', choices=choices, type=str, help='The project to run')
     parser.add_argument("--task", type=str, default=None, help="task name:{train, predict, online_train}",  metavar='')
+    parser.add_argument("--magellan_model", choices=model_choices, type=str, default='dt', help="Magellan model name",  metavar='')
+    parser.add_argument("--npi", action="store_true", help="Include NPIs for training (default: exclude NPIs)")
     parser.add_argument("--model", type=str, default=None, help="model name",  metavar='')
     parser.add_argument("--data", type=str, default=None, help="data file name",  metavar='')
 
@@ -134,7 +138,10 @@ if __name__ == '__main__':
         model2 = model_evaluation.load_model(config.MODEL_FOLDER +"retrained_model.pth")
         
         model_evaluation.compare_models(model1, model2, test)
-    elif args.project == 'penumbra' and args.task == 'neo4j':      
+    elif args.project == 'penumbra' and args.task == 'neo4j': 
+        """
+        Load the data to Neo4j and build edges for obvious duplicates.
+        """     
         data_dir = 'src/data'
 
         print('Loading data to Neo4j')
@@ -146,32 +153,96 @@ if __name__ == '__main__':
         eb.handle_o_dups()
 
     elif args.project == 'penumbra' and args.task == 'm_training':
+        """
+        Prepare the training data, train the Magellan model, and evaluate the model.
+
+        Args:
+        - The --npi flag is optional. If included, the training data will include NPIs. The default is to exclude NPIs.
+        - The --magellan_model flag is optional. If included, the model will be trained with the specified model. The default is Decision Tree.
+        The model options are: Decision Tree (dt), Support Vector Machine (svm), Random Forest (rf), Logistic Regression (lg), Linear Regression (ln), and Naive Bayes (nb).
+
+        Output:
+        - A model.pkl file will be saved.
+        - A droped.csv file will be saved. 
+        ('droppep.csv' contains the test data that has pairs with non-matching NPIs and isn't used for training.)
+        """
         data_dir = 'src/data'
 
-        print('Preparing training data...')
-        dp = DataPreprocessor(data_dir)
+        print('Preparing training data with{} NPI...'.format('' if args.npi else 'out'))
+        dp = DataPreprocessor(data_dir, include_npi=args.npi)
         ltable, rtable, data = dp.prepare_training_data(skewed_factor=2)
 
-        print('Training Magellan model...')
-        mt = MagellanTrainer(ltable, rtable, data, training=True)
-        model = mt.train_model()
-        preds = mt.predict(model)
+        print('Training {} with{} NPI...'.format(args.magellan_model, '' if args.npi else 'out'))
+        mt = MagellanTrainer(ltable, rtable, data, model=args.magellan_model, training=True)
+        mt.train_model()
+
+        print('Evaluating the model...')
+        preds = mt.predict()
         mt.evaluate(preds)
 
-    elif args.project == 'penumbra' and args.task == 'm_pred':    
-        data_dir = 'src/data'
-        
-        print('Running predictions with the trained model...')
-        data = pd.read_csv('dropped.csv')
-        dp = DataPreprocessor(data_dir)
-        dp._split_tables(data)
-        A, B, C = dp._load_data()
-        
-        mt = MagellanTrainer(A, B, C)
-        model = joblib.load('model.pkl')
-        mt.predict(model, C)
+        print('Displaying feature importance...')
+        mt.retrieve_feature_importance()
 
-        #NPIValidator().validate_NPIs()
+    elif args.project == 'penumbra' and args.task == 'test1':  
+        """
+        Prerequisits: 
+        - model.pkl file should be available from the training.
+        - dropped.csv file should be available from the training.
+
+        Run predictions on the test data and the same data with NPIs removed.
+        """  
+        data_dir = 'src/data'
+        model = joblib.load('model.pkl')
+
+        # If the saved model is trained without NPIs, the test data is prepared without NPIs.
+        data = pd.read_csv('dropped.csv')
+        include_npi = False
+        if 'rtable_npi' in data.columns:
+            include_npi = True
+
+        dp = DataPreprocessor(data_dir, include_npi=include_npi)
+        df = dp._handle_int_cols(data)
+        A, B, C = dp._load_data(df)
+
+        print('Running predictions on the label 0 test data with{} NPI...'.format('' if include_npi else 'out'))
+        mt = MagellanTrainer(A, B, C, model)
+        preds = mt.predict(C)
+        print(f'False negatives: {(preds["predicted"] == 1).sum()} (out of {len(preds)} negative predictions)')
+        
+        if include_npi:     
+            print('Running predictions on the label 0 test data with NPIs removed...')
+            # mask npis 
+            df['ltable_npi'] = np.nan
+            df['rtable_npi'] = np.nan
+            A, B, C = dp._load_data(data)
+        
+            mt = MagellanTrainer(A, B, C, model)
+            preds = mt.predict(C)
+            print(f'False negatives when NPIs are masked: {(preds["predicted"] == 1).sum()} (out of {len(preds)} negative predictions)')
+    
+    elif args.project == 'penumbra' and args.task == 'test2':
+        data_dir = 'src/data'
+        model = joblib.load('model.pkl')
+        # If the model is trained with NPIs, make sure include --npi flag to the run command.
+        dp = DataPreprocessor(data_dir, include_npi=args.npi)
+
+        df = dp.prepare_test_data()
+        A, B, C = dp._load_data(df)
+
+        mt = MagellanTrainer(A, B, C, model)
+        preds = mt.predict(C)
+        mt.retrieve_feature_importance()
+    
+    elif args.project == 'penumbra' and args.task == 'feature':
+        model = joblib.load('model.pkl')
+        data_dir = 'src/data'
+
+        mt = MagellanTrainer(model=model)
+        mt.retrieve_feature_importance()
+    
+    elif args.project == 'penumbra' and args.task == 'npi':
+        NPIValidator().validate_NPIs()
+
     
     
 

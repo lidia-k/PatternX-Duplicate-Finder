@@ -2,28 +2,41 @@ import joblib
 import sys
 
 import dill
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import py_entitymatching as em
 
 
 class MagellanTrainer:
-    dt = em.DTMatcher(name='DecisionTree', random_state=0)
-    svm = em.SVMMatcher(name='SVM', random_state=0)
-    rf = em.RFMatcher(name='RF', random_state=0)
-    lg = em.LogRegMatcher(name='LogReg', random_state=0)
-    ln = em.LinRegMatcher(name='LinReg')
-    nb = em.NBMatcher(name='NaiveBayes')
+
+    matchers = {
+        'dt': em.DTMatcher(name='DecisionTree', random_state=0),
+        'svm': em.SVMMatcher(name='SVM', random_state=0),
+        'rf': em.RFMatcher(name='RF', random_state=0),
+        'lg': em.LogRegMatcher(name='LogReg', random_state=0),
+        'ln': em.LinRegMatcher(name='LinReg'),  
+        'nb': em.NBMatcher(name='NaiveBayes')
+    }
     attrs_after = None
     exclude_attrs = ['id', 'ltable_id', 'rtable_id']
 
-    def __init__(self, ltable, rtable, data, training=False):
+    def __init__(self, ltable=None, rtable=None, data=None, model=None, training=False):
         self.ltable = ltable
         self.rtable = rtable
 
         self.data = data
-        self.train_set, self.test_set = self._split_data()
+        if training: 
+            self.train_set, self.test_set = self._split_data()
 
+        self._load_model(model)
         self.feature_table = self._load_feature_table(training)
+    
+    def _load_model(self, model):
+        if type(model) == str:
+            self.model = self.matchers[model]
+        else:  
+            self.model = model  
 
     def _load_feature_table(self, training):
         if training:
@@ -63,7 +76,7 @@ class MagellanTrainer:
 
     def _select_best_model(self, f_vectors):
         result = em.select_matcher(
-            [self.dt, self.svm, self.rf, self.lg, self.ln, self.nb], 
+            [matcher for matcher in self.matchers.values()], 
             table=f_vectors, 
             exclude_attrs=['id', 'ltable_id', 'rtable_id', 'label'], 
             k=5, target_attr=self.attrs_after, 
@@ -84,29 +97,48 @@ class MagellanTrainer:
         f_vectors = self._create_features(self.train_set)
         
         best_model = self._select_best_model(f_vectors)
-        self.dt.fit(
+        # You can choose to use the best model or a specific model. We're currently using a specific model.
+        import pdb; pdb.set_trace()
+        self.model.fit(
             table=f_vectors, 
             exclude_attrs=self.exclude_attrs, 
             target_attr='label'
         )
-        joblib.dump(self.dt, 'model.pkl')
-        return self.dt
-    
-    def predict(self, model, data=None):
+        joblib.dump(self.model, 'model.pkl')
+
+    def predict(self, data=None):
         if data is None:
             data = self.test_set
 
         f_vectors = self._create_features(data)
-        predictions = model.predict(
+        predictions = self.model.predict(
             table=f_vectors, 
             exclude_attrs=self.exclude_attrs, 
             append=True, target_attr='predicted', inplace=False
         )
 
         merge_df = data.merge(predictions[['id', 'predicted']], on='id', how='left')
-        merge_df.to_csv('predictions.csv', index=False)
+        merge_df = merge_df[['id', 'predicted', 'ltable_fullname', 'rtable_fullname', 
+                             'ltable_email', 'rtable_email', 'ltable_sap_no', 'rtable_sap_no']]
+        merge_df.to_csv(f'predictions_{self.model.clf.__class__.__name__}.csv', index=False)
         return predictions
      
     def evaluate(self, predictions):
         eval_result = em.eval_matches(predictions, 'label', 'predicted')
         em.print_eval_summary(eval_result)
+    
+    def retrieve_feature_importance(self):
+        importances = self.model.clf.feature_importances_
+        feature_names = self.feature_table['feature_name'].values
+        
+        plt.figure(figsize=(10, 15))
+        indices = np.argsort(importances)[::-1][:30]
+
+        plt.title(f'Feature Importance in {self.model.clf.__class__.__name__}')
+        plt.barh(range(len(indices)), importances[indices], color='b', align='center')
+        plt.yticks(range(len(indices)), [feature_names[i] for i in indices])
+        plt.xlabel('Relative Importance')
+
+        plt.subplots_adjust(left=0.3)
+        plt.show()
+        
