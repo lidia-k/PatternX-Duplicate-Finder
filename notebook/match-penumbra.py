@@ -4,15 +4,16 @@
 # output:  outfile  = hard coded path to output file, which contains a list of 
 #          edges as a 3 tuple (xx,yy,##).  xx and yy are row id's from the spreadsheet
 #          and ## is the confidence level that xx and yy are the same person
-# assume:  we have a directory tree of code file as follows
-#          repo_root
-#          |-- src
-#          |   |-- utils/:  penumbra.py, ...
-#          |-- notebook/:   this-file.py
+# assume:  dm.data.process():  deepmatcher.data.field needs 8GB of vectors stored in drive.google.com
+#          INFO:deepmatcher.data.field: Downloading vectors 
+#          from https://drive.google.com/uc?export=download&id=1Vih8gAmgBnuYDxfblbT94P6WjB7s1ZSh 
+#          to /250g/home/snguyen/.vector_cache/wiki.en.bin
 #
-# require: for linux to run deepmatcher we need python v3.9, which needs 
-#          torchtext v0.10.1.  afterwards, install these libraries in the 3.9 dir
+# require: for linux to run deepmatcher we need torchtext v0.10.1, which needs 
+#          python v3.9.  afterwards, install these libraries in the python3.9 dir
 #          using pip3.9:
+#          pip39 install -r requirements.txt
+#          torch==1.9.1, fastai, xgboost, python-decouple, deepmatcher, openpyxl
 #          matplotlib, msoffcrypto-tool, pandas, seaborn
 #          py_entitymatching  # might need to run "apt install tk-dev"
 #             else error:  ModuleNotFoundError: No module named '_tkinter'
@@ -29,10 +30,12 @@
 #   .       so they don't need to undergo fuzzy matching
 #   survive = pairs that passes through the blocking process.  these pairs 
 #   .       MIGHT refer to the same people.  They will go through fuzzy matching
+#
+#a "None" might cause AttributeError: 'NoneType' object has no attribute 'seek'. You can only torch.load from a file that is seekable. Please pre-load the data into a buffer like io.BytesIO and try to load from it instead.
 #===============================================================================
 
 import pdb, io, sys, os, pandas as pd, numpy as np, matplotlib.pyplot as plt
-sys.path.append('../'); #  sys.path.append('../src/lib/'); sys.path.append('../src/utils/penumbra/')
+sys.path.append('./'); #  sys.path.append('../src/lib/'); sys.path.append('../src/utils/penumbra/')
 import typing as tp, seaborn as sns, msoffcrypto, py_entitymatching as em 
 from   itertools import combinations, permutations
 from   fastai.tabular.all import *
@@ -42,7 +45,7 @@ from   sklearn.metrics import accuracy_score
 from   sklearn.neighbors import KNeighborsClassifier
 from   sklearn.tree import DecisionTreeClassifier
 from   xgboost import XGBClassifier
-import src.utils.auto_config as config, src.utils.penumbra as bra, deepmatcher as dm
+import src.utils.auto_config as config, penumbra as bra, deepmatcher as dm
 pd.options.display.max_columns = None
 """
 try:     import msoffcrypto
@@ -59,9 +62,9 @@ finally: import py_entitymatching as em
 
 #----------- read data --------------
 
-data_dir = '/home/snguyen/norm/dupsie/data/penumbra/'  # f'{os.path.dirname(os.getcwd())}/data/'
-datafile = data_dir + "hcp-manz-sn.xlsx"
-outfile  = data_dir + "edges.dat"
+datadir = '/home/snguyen/norm/dupsie/data/penumbra/'  # f'{os.path.dirname(os.getcwd())}/data/'
+datafile = datadir + "hcp-manz-sn.xlsx"
+outfile  = datadir + "edges.dat"
 decrypted_workbook = io.BytesIO()
 with open(datafile, 'rb') as file:
     office_file = msoffcrypto.OfficeFile(file)
@@ -142,12 +145,18 @@ new_A = new_A.reset_index()                                 # print( new_A.colum
 
 from datetime import datetime
 print( 'start labeling:  ', datetime.now().strftime("%H:%M:%S") )
-df, label_1_df, label_0_df, full_name_duplicate_df, NPI_duplicate_df, \
-    SAP_duplicate_df, QB_duplicate_df =  bra.label_duplicate_data( new_A, skewed_factor=2 ) 
-pdb.set_trace()
+dfilepath = datadir + '/labels.dat'
+if os.path.exists( dfilepath ):
+    with open( dfilepath, 'rb' ) as dfile:  dafs = pickle.load( dfile )
+    df = dafs[0]; label_1_df = dafs[1]; label_0_df = dafs[2]; full_name_duplicate_df = dafs[3]; 
+    NPI_duplicate_df = dafs[4]; SAP_duplicate_df = dafs[5]; QB_duplicate_df = dafs[6];
+else: 
+    df, label_1_df, label_0_df, full_name_duplicate_df, NPI_duplicate_df, \
+        SAP_duplicate_df, QB_duplicate_df =  bra.label_duplicate_data( new_A, skewed_factor=2 ) 
+    dafs = (df, label_1_df, label_0_df, full_name_duplicate_df, \
+        NPI_duplicate_df, SAP_duplicate_df, QB_duplicate_df)
+    with open( dfilepath, 'wb' ) as dfile:  pickle.dump( dafs, dfile )
 print( 'end   labeling:  ', datetime.now().strftime("%H:%M:%S") )
-dafs = (df, label_1_df, label_0_df, full_name_duplicate_df, NPI_duplicate_df, SAP_duplicate_df, QB_duplicate_df)
-
 
 selected_columns = ['id','ltable_Full Name', 'rtable_Full Name',
     'ltable_National Physician ID', 'rtable_National Physician ID',
@@ -160,20 +169,30 @@ sns.countplot(x = 'label', data = df)
 # print( label_0_df[selected_columns].head(3).reset_index(drop = True) )
 # print( label_1_df[selected_columns].head(10).reset_index(drop = True) )
 
-#-------------- build model ------------------
+#-------------- deepmatcher ------------------
 
 del df['id']
 pos_neg_ratio = np.sum(df['label'] == 1)/ np.sum(df['label'] == 0)
-dm.data.split(df, data_dir, 'train.csv', 'valid.csv', 'test.csv',[3, 1, 1])
-train, validation, test = dm.data.process( path=data_dir, cache='train_cache0.pth',
+dm.data.split(df, datadir, 'train.csv', 'valid.csv', 'test.csv',[3, 1, 1])
+
+# Reading and processing data from "/home/snguyen/norm/dupsie/data/penumbra/train.csv"
+# 0% [############################# ] 100% | ETA: 00:00:00
+# Reading and processing data from "/home/snguyen/norm/dupsie/data/penumbra/valid.csv"
+# 0% [############################# ] 100% | ETA: 00:00:00
+# Reading and processing data from "/home/snguyen/norm/dupsie/data/penumbra/test.csv"
+# 0% [############################# ] 100% | ETA: 00:00:00Warning : `load_model` does not return WordVectorModel or SupervisedModel any more, but a `FastText` object which is very similar.
+# Killed
+
+train, validation, test = dm.data.process( path=datadir, cache='train_cache0.pth',              # 15 seconds
     train='train.csv', validation='valid.csv', test='test.csv', use_magellan_convention=True )
 model = dm.MatchingModel(attr_summarizer='hybrid')
-model.run_train(train, validation, epochs=3, batch_size=16, best_save_path=None, pos_neg_ratio=pos_neg_ratio)
+model.run_train(train, validation, epochs=3, batch_size=16, 
+    best_save_path=datadir+"best-dm-weights.bin", pos_neg_ratio=pos_neg_ratio) #sn was best_save_path=None #a
 model.run_eval(test)
 
 #------------- use case --------------------
-
-candidate = dm.data.process_unlabeled( path=os.path.join(data_dir, 'new_data.csv'),
+"""
+candidate = dm.data.process_unlabeled( path=os.path.join(datadir, 'new_data.csv'),
     trained_model=model, ignore_columns=('ltable_id', 'rtable_id', 'label') )
 predictions = model.run_prediction(candidate, output_attributes=list(candidate.get_raw_table().columns))
 predictions = predictions.rename(columns={"match_score":"confident"})
@@ -186,7 +205,7 @@ predictions.query("(is_matched == 0) & (label == 1) ")[selected_columns].tail(20
 
 print( predictions.query("(is_matched == 1) & (label == 0) ")[selected_columns].head(20) )
 print( predictions[selected_columns].head(20) )
-
+"""
 #-------------- old school ------------------
 
 def rf_feat_importance(m, features):
