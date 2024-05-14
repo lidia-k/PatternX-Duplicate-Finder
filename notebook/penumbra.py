@@ -143,7 +143,6 @@ def process_data(table, blocking_config: tp.Dict):
         K = ob.block_candset(K, criteria, criteria, overlap_size=1)
         print(f'Number of pairs after {level} blocking: {len(K)}')
 
-    pdb.set_trace()
     blocked_ids = pd.concat( [ K['ltable_id'], K['rtable_id'] ] ).unique()
     blocked_ids = [x.split('_')[1] for x in blocked_ids]
     final_table = table.loc[~table.index.isin(blocked_ids)]
@@ -193,7 +192,6 @@ def label_duplicate_data(df: pd.DataFrame, skewed_factor: int = 5) -> pd.DataFra
     Whenever a pair satisfies one of those conditions, its label will be assinged to 1. Otherwise, its label will be assigned to 0.
     Args:    df DataFrame: dataframe with label
     """
-    pdb.set_trace()
     df.rename(columns={'index': 'id'}, inplace=True)
 
     duplicate_dfs = []
