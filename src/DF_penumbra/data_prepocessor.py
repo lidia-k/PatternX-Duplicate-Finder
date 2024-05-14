@@ -226,7 +226,7 @@ class DataPreprocessor:
         return df
 
     def prepare_alldata_exclude_traindata(self):
-        # exclude the data used for training
+        # exclude the data used for training (change the size corresponding to the size used for training)
         ltable, rtable, data = self.prepare_training_data(skewed_factor=2, size=None)
         exclude_uids = ltable["uid"].unique().tolist()
         exclude_uids.extend(rtable["uid"].unique().tolist())
@@ -241,7 +241,7 @@ class DataPreprocessor:
         result = self.graph.cypher_transaction(q)
 
         df = pd.DataFrame([dict(record[0]) for record in result])
-        
+
         pairs = [(df.iloc[i], df.iloc[j]) for i, j in combinations(range(len(df)), 2)]
         paired_data = []
         for left, right in pairs:

@@ -243,7 +243,6 @@ if __name__ == '__main__':
         """
         data_dir = 'src/data'
         model = joblib.load('model.pkl')
-        # If the model is trained with NPIs, make sure include --npi flag to the run command.
         dp = DataPreprocessor(data_dir, include_npi=args.npi)
 
         df = dp.prepare_alldata_exclude_traindata()
