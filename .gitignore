@@ -3,7 +3,7 @@
 *.env
 *.zip
 *.gz
-/ragenv
+/pxenv
 synthea*/
 **/__pycache__/
 .env
