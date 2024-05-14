@@ -233,7 +233,27 @@ if __name__ == '__main__':
         mt = MagellanTrainer(A, B, C, model)
         preds = mt.predict(C)
         #mt.retrieve_feature_importance()
-    
+
+    elif args.project == 'penumbra' and args.task == 'predict-all':
+        """
+        Prerequisits:
+        - model.pkl file should be available from the training.
+
+        Run predictions on the test all data (exclude the data used for training)
+        """
+        data_dir = 'src/data'
+        model = joblib.load('model.pkl')
+        # If the model is trained with NPIs, make sure include --npi flag to the run command.
+        dp = DataPreprocessor(data_dir, include_npi=args.npi)
+
+        df = dp.prepare_alldata_exclude_traindata()
+        print("df", df)
+
+        A, B, C = dp._load_data(df)
+
+        mt = MagellanTrainer(A, B, C, model)
+        preds = mt.predict(C)
+
     elif args.project == 'penumbra' and args.task == 'feature':
         model = joblib.load('model.pkl')
         data_dir = 'src/data'
