@@ -114,7 +114,7 @@ Before running the code, create a virtual environment and use `requirements-new.
 **Prepare Training Data and Train A Model**
 
 - Input: Data stored in Neo4J.
-- Usage: `python3 run.py --project penumbra --task m_training --npi --magellan_model dt`. 
+- Usage: `python3 run.py --project penumbra --task m_training --magellan_model dt --npi`. 
     1) Specify which model to use by adding `--magellan_model <model_name>`. The model options are: Decision Tree (dt), Support Vector Machine (svm), Random Forest (rf), Logistic Regression (lg), Linear Regression (ln), and Naive Bayes (nb).
     2) To train a model with the labeled data including NPIs, add `--npi` to the command. 
 - Method: 

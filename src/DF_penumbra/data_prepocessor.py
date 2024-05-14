@@ -110,7 +110,7 @@ class DataPreprocessor:
         print(f'The number of non-matching pairs:', len(sample_df))
         return sample_df, dropped_df
        
-    def _build_matching_pairs(self):
+    def _build_matching_pairs(self, size):
         """
         Retrieves pairs of nodes connected by specified types of edges.
 
@@ -130,11 +130,18 @@ class DataPreprocessor:
         WHERE type(r) = type AND a.uid <> b.uid
         RETURN DISTINCT a, b
         '''
+        if size is not None:
+            q += f'LIMIT {size}'
+
         result = self.graph.cypher_transaction(q)
-        
         df = self._create_df(result, label=1)
-        print(f'The number of matching pairs:', len(df))
-        return df
+        df = shuffle(df, random_state=1).reset_index(drop=True)
+
+        # Split the first 46 rows for the test case 2
+        df_46 = df.loc[:46, :].to_csv('46.csv', index=False)
+        matching_df = df.loc[46:, :]
+        print(f'The number of matching pairs:', len(matching_df))
+        return matching_df
         
     def _split_tables(self, df):
         """
@@ -171,11 +178,11 @@ class DataPreprocessor:
         )
         return A, B, C
 
-    def prepare_training_data(self, skewed_factor=5):
+    def prepare_training_data(self, skewed_factor, size):
         """
         Label the pairs as matching or non-matching and prepare the training data. 
         """
-        matching_df = self._build_matching_pairs()
+        matching_df = self._build_matching_pairs(size)
         
         limit = len(matching_df) * skewed_factor
         non_matching_df, _ = self._build_non_matching_pairs(limit=limit)
@@ -201,12 +208,17 @@ class DataPreprocessor:
         MATCH (a), (b)
         WHERE a.email <> b.email AND a.sap_no = b.sap_no AND a <> b AND NOT (a)-[]-(b)
         RETURN DISTINCT a, b
-        LIMIT 10 
+        LIMIT 14
         '''
         non_matching_result = self.graph.cypher_transaction(non_matching_q)
         result.extend(non_matching_result)
 
         df = self._create_df(result)
+
+        # Add the label 1 training data to the test data
+        df_46 = pd.read_csv('46.csv')
+        df = pd.concat([df, df_46], sort=False)
+
         df = self._handle_int_cols(df)
         df.drop(columns=['label'], inplace=True)
         #df[['ltable_fullname', 'rtable_fullname',

@@ -28,6 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('--project', choices=choices, type=str, help='The project to run')
     parser.add_argument("--task", type=str, default=None, help="task name:{train, predict, online_train}",  metavar='')
     parser.add_argument("--magellan_model", choices=model_choices, type=str, default='dt', help="Magellan model name",  metavar='')
+    parser.add_argument("--size", type=int, default=None, help="Size parameter for the task", metavar='')
     parser.add_argument("--npi", action="store_true", help="Include NPIs for training (default: exclude NPIs)")
     parser.add_argument("--model", type=str, default=None, help="model name",  metavar='')
     parser.add_argument("--data", type=str, default=None, help="data file name",  metavar='')
@@ -170,7 +171,7 @@ if __name__ == '__main__':
 
         print('Preparing training data with{} NPI...'.format('' if args.npi else 'out'))
         dp = DataPreprocessor(data_dir, include_npi=args.npi)
-        ltable, rtable, data = dp.prepare_training_data(skewed_factor=2)
+        ltable, rtable, data = dp.prepare_training_data(skewed_factor=2, size=args.size)
 
         print('Training {} with{} NPI...'.format(args.magellan_model, '' if args.npi else 'out'))
         mt = MagellanTrainer(ltable, rtable, data, model=args.magellan_model, training=True)
@@ -231,7 +232,7 @@ if __name__ == '__main__':
 
         mt = MagellanTrainer(A, B, C, model)
         preds = mt.predict(C)
-        mt.retrieve_feature_importance()
+        #mt.retrieve_feature_importance()
     
     elif args.project == 'penumbra' and args.task == 'feature':
         model = joblib.load('model.pkl')

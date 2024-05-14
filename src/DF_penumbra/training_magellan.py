@@ -98,7 +98,6 @@ class MagellanTrainer:
         
         best_model = self._select_best_model(f_vectors)
         # You can choose to use the best model or a specific model. We're currently using a specific model.
-        import pdb; pdb.set_trace()
         self.model.fit(
             table=f_vectors, 
             exclude_attrs=self.exclude_attrs, 
@@ -117,6 +116,7 @@ class MagellanTrainer:
             append=True, target_attr='predicted', inplace=False
         )
 
+        # Save predictions to a CSV file
         merge_df = data.merge(predictions[['id', 'predicted']], on='id', how='left')
         merge_df = merge_df[['id', 'predicted', 'ltable_fullname', 'rtable_fullname', 
                              'ltable_email', 'rtable_email', 'ltable_sap_no', 'rtable_sap_no']]
