@@ -115,11 +115,10 @@ class MagellanTrainer:
             exclude_attrs=self.exclude_attrs, 
             append=True, target_attr='predicted', inplace=False
         )
-
         # Save predictions to a CSV file
         merge_df = data.merge(predictions[['id', 'predicted']], on='id', how='left')
-        merge_df = merge_df[['id', 'predicted', 'ltable_fullname', 'rtable_fullname', 
-                             'ltable_email', 'rtable_email', 'ltable_sap_no', 'rtable_sap_no']]
+        #merge_df = merge_df[['id', 'predicted', 'ltable_fullname', 'rtable_fullname', 
+        #                     'ltable_email', 'rtable_email', 'ltable_sap_no', 'rtable_sap_no']]
         merge_df.to_csv(f'predictions_{self.model.clf.__class__.__name__}.csv', index=False)
         return predictions
      
