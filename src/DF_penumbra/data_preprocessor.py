@@ -225,6 +225,34 @@ class DataPreprocessor:
         #    'ltable_email', 'rtable_email', 'ltable_sap_no', 'rtable_sap_no']].to_csv('test.csv', index=False)
         return df
 
+    def prepare_alldata_exclude_traindata(self):
+        # exclude the data used for training (change the size corresponding to the size used for training)
+        ltable, rtable, data = self.prepare_training_data(skewed_factor=2, size=None)
+        exclude_uids = ltable["uid"].unique().tolist()
+        exclude_uids.extend(rtable["uid"].unique().tolist())
+        exclude_uids = list(set(exclude_uids))
+
+        # fetch all data from Neo (exclude exclude_uids)
+        q = f'''
+        MATCH (n)
+        WHERE NOT n.uid in {exclude_uids}
+        RETURN n
+        '''
+        result = self.graph.cypher_transaction(q)
+
+        df = pd.DataFrame([dict(record[0]) for record in result])
+
+        pairs = [(df.iloc[i], df.iloc[j]) for i, j in combinations(range(len(df)), 2)]
+        paired_data = []
+        for left, right in pairs:
+            left_dict = {'ltable_' + col: val for col, val in left.items()}
+            right_dict = {'rtable_' + col: val for col, val in right.items()}
+            paired_data.append({**left_dict, **right_dict})
+
+        paired_df = pd.DataFrame(paired_data)
+        df = self._handle_int_cols(paired_df)
+        return df
+
     @classmethod
     def _build_text(self, node):
         text = 'The following is the information of the health care provider.\n'

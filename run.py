@@ -12,7 +12,7 @@ from src.modelling.model_trainining import PenumbraModelTrainer
 from src.preprocessing.data_preprocessing import PenumbraDataPreprocessor
 from src.preprocessing.feature_engineering import PenumbraFeatureEnginner
 from src.DF_penumbra.data_loader import Neo4jDataLoader
-from src.DF_penumbra.data_prepocessor import DataPreprocessor
+from src.DF_penumbra.data_preprocessor import DataPreprocessor
 from src.DF_penumbra.edge_builder import EdgeBuilder
 from src.DF_penumbra.npi_vaildator import NPIValidator
 from src.DF_penumbra.training_magellan import MagellanTrainer
@@ -233,7 +233,26 @@ if __name__ == '__main__':
         mt = MagellanTrainer(A, B, C, model)
         preds = mt.predict(C)
         #mt.retrieve_feature_importance()
-    
+
+    elif args.project == 'penumbra' and args.task == 'predict-all':
+        """
+        Prerequisits:
+        - model.pkl file should be available from the training.
+
+        Run predictions on the test all data (exclude the data used for training)
+        """
+        data_dir = 'src/data'
+        model = joblib.load('model.pkl')
+        dp = DataPreprocessor(data_dir, include_npi=args.npi)
+
+        df = dp.prepare_alldata_exclude_traindata()
+        print("df", df)
+
+        A, B, C = dp._load_data(df)
+
+        mt = MagellanTrainer(A, B, C, model)
+        preds = mt.predict(C)
+
     elif args.project == 'penumbra' and args.task == 'feature':
         model = joblib.load('model.pkl')
         data_dir = 'src/data'
