@@ -168,3 +168,34 @@ Test 2:
  - prediction: `python run.py --project penumbra --task predict --model demo_model.pth --data new_data.csv`
  - online training: `python run.py --project penumbra --task online_train --model model.pth --data wrong_prediction.csv`
 
+### Ditto 
+
+conda environment
+`conda create --name py37 python=3.7`
+`conda activate py37`
+
+clone the ditto repo 
+`cd ditto`
+`pip install -r requirements.txt`
+(`torch==1.9.0+cu111` didn't work, so I had to install `torch==1.9.0` instead.)
+
+install nvidia-apex on CPU
+`git clone https://github.com/NVIDIA/apex`
+`cd apex`
+`git checkout thc_headers_21.12` # Checkout to the old version compatible with python 3.7 and Ditto
+`export TORCH_CUDA_ARCH_LIST="compute capability"` # for CPU 
+`pip install -v --no-cache-dir ./`
+
+`python -m spacy download en_core_web_lg`
+
+run ditto dataset 
+`python`
+`import nltk`
+`nltk.download('stopwords')`
+
+install other requirements 
+`pip install -r requirements-ditto.txt`
+
+`python run-sn.py --project penumbra --task train-ditto`
+
+
