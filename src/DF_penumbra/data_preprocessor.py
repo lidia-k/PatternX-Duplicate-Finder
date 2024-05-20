@@ -22,7 +22,7 @@ class DataPreprocessor:
         self.data_dir = data_dir
         self.include_npi = include_npi
     
-    def detect_high_missing_features(self, missing_percentage_threshold=59.2):
+    def detect_high_missing_props(self, missing_percentage_threshold=59.2):
         q = '''
         // Collect all unique property keys from all nodes
         MATCH (n)
@@ -177,18 +177,32 @@ class DataPreprocessor:
             fk_ltable='ltable_id', fk_rtable='rtable_id'
         )
         return A, B, C
+    
+    def _handle_missing_features(self, df, threshold=78):
+        missing_per = df.isna().sum()/df.shape[0]*100
+        removed_features = missing_per[missing_per > threshold].index
+        df = df.drop(columns=removed_features)
+        print(f'Removed {removed_features}')
+
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                df[col] = df[col].fillna('UNKNOWN').astype(object)
+            if df[col].dtype.name == 'Int64':
+                df[col] = df[col].fillna(-1)
+        return df 
 
     def prepare_training_data(self, skewed_factor, size):
         """
         Label the pairs as matching or non-matching and prepare the training data. 
         """
         matching_df = self._build_matching_pairs(size)
-        
+    
         limit = len(matching_df) * skewed_factor
         non_matching_df, _ = self._build_non_matching_pairs(limit=limit)
         matching_df = matching_df[non_matching_df.columns]
-        
+
         combined_df = pd.concat([matching_df, non_matching_df], sort=False)
+      
         return self._load_data(combined_df)
     
     def prepare_test_data(self):
