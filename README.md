@@ -114,8 +114,8 @@ Before running the code, create a virtual environment and use `requirements-new.
 **Prepare Training Data and Train A Model**
 
 - Input: Data stored in Neo4J.
-- Usage: `python3 run.py --project penumbra --task m_training --magellan_model dt --npi`. 
-    1) Specify which model to use by adding `--magellan_model <model_name>`. The model options are: Decision Tree (dt), Support Vector Machine (svm), Random Forest (rf), Logistic Regression (lg), Linear Regression (ln), and Naive Bayes (nb).
+- Usage: `python3 run.py --project penumbra --task m_training --m_model dt --npi`. 
+    1) Specify which model to use by adding `--m_model <model_name>`. The model options are: Decision Tree (dt), Support Vector Machine (svm), Random Forest (rf), Logistic Regression (lg), Linear Regression (ln), and Naive Bayes (nb).
     2) To train a model with the labeled data including NPIs, add `--npi` to the command. 
 - Method: 
     1) Use obvious duplicates to create matching (label 1) and non-matching (label 0) pairs of nodes. A total of 5925 pairs are labeled as 1 and 11850 pairs are labeled as 0. You can increase the number of the label 0 pairs by adjusting `skewed_factor` in the line 166 of the run file. 

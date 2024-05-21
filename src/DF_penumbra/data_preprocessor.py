@@ -152,6 +152,9 @@ class DataPreprocessor:
         df['ltable_id'] = df['id']
         df['rtable_id'] = df['id']
         #combined_df = combined_df.loc[:, ['label', 'ltable_uid', 'rtable_uid', 'ltable_npi', 'rtable_npi', 'ltable_fullname', 'rtable_fullname']]
+        
+        # Remove the 'uid' columns for training the XGBoost model 
+        #df.drop(columns=['ltable_uid', 'rtable_uid'], inplace=True)
         df.to_csv('C.csv', index=False)
 
         ltable_cols = [col for col in df.columns if 'ltable_' in col]
