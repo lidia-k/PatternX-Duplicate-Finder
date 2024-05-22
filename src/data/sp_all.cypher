@@ -2,6 +2,8 @@ LOAD CSV WITH HEADERS FROM '{file_path}' AS row
 CREATE (s:Speaker {{
     franchise: row.franchise,
     fullname: row.fullname,
+    fname: row.fname,
+    lname: row.lname,
     npi: toInteger(row.npi),
     sap_no: toInteger(row.sap_no),
     category: row.category,

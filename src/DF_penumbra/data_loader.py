@@ -24,9 +24,11 @@ class Neo4jDataLoader:
     def _process_names(self, file_name):
         file_type = 'sp' if 'speaker' in file_name else 'po'
         renamed_cols = constants.SP_COLS if file_type == 'sp' else constants.PO_COLS
+        
         name_str = file_name.split('-')[3 if file_type == 'sp' else 2].split('.')[0]
         file_name = f'{self.data_dir}/{file_type}_{name_str}.csv'
         node_type = f'{file_type}_{name_str[:2]}'
+        
         return renamed_cols, name_str, file_name, node_type
 
     def _prepare_csv_file(self, csv_file):
@@ -51,10 +53,11 @@ class Neo4jDataLoader:
                 df.drop(columns=[col], inplace=True)
         """
 
-        if 'speaker' in csv_file and not 'all' in csv_file:      
-            df = pd.read_csv(csv_file, header=1)
-            df['uid'] = [f'{node_type}_{i+3}' for i in range(len(df))]
-            df['franchise'] = [name_str.capitalize() for i in range(len(df))]
+        if 'speaker' in csv_file: 
+            if not 'all' in csv_file:      
+                df = pd.read_csv(csv_file, header=1)
+                df['uid'] = [f'{node_type}_{i+3}' for i in range(len(df))]
+                df['franchise'] = [name_str.capitalize() for i in range(len(df))]
         
         if 'vcheck' in csv_file:
             df.columns = [process_columns(col) for col in df.columns]
@@ -65,6 +68,9 @@ class Neo4jDataLoader:
         # Renmae columns and convert to lowercase
         df = df.rename(columns=rename)
         df.columns = [col.lower() for col in df.columns]
+
+        if 'speaker' in csv_file:
+            df[['fname', 'lname']] = df['fullname'].str.split(n=1, expand=True)
 
         # Split a row with two sap numbers into two rows
         if 'sap_no' in df.columns:
@@ -84,7 +90,7 @@ class Neo4jDataLoader:
 
         df.to_csv(f'./{file_name}', index=False)
         print(f'Updated file: {file_name}')
-        return file_name
+        return file_name, df
 
     def _load_data_from_cypher(self, file_path):
         if 'sp' in file_path:
@@ -98,6 +104,14 @@ class Neo4jDataLoader:
         query = query.format(file_path=f'file:///{file_path}')
         self.graph.cypher_transaction(query)
         print(f'Loaded data from {file_path} to Neo4j')
+
+    def _find_common_columns(self, df_dict):
+        common_cols = set()
+        for key, df in df_dict.items():
+            if 'vcheck' in key:
+                continue
+            common_cols.intersection_update(df.columns) if common_cols else common_cols.update(df.columns)
+        return common_cols
 
     def load_csv_to_neo4j(self):
         self.graph.wipe_database()
@@ -115,6 +129,10 @@ class Neo4jDataLoader:
 
         # Update csv files and load data to Neo4j
         data_bundles = glob.glob(f'{self.data_dir}/*.csv')
+        df_dict = {}
         for f in data_bundles:
-            fname = self._prepare_csv_file(f)
+            fname, df = self._prepare_csv_file(f)
             self._load_data_from_cypher(fname)
+            
+            df_dict[fname] = df
+
