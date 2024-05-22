@@ -53,11 +53,10 @@ class Neo4jDataLoader:
                 df.drop(columns=[col], inplace=True)
         """
 
-        if 'speaker' in csv_file: 
-            if not 'all' in csv_file:      
-                df = pd.read_csv(csv_file, header=1)
-                df['uid'] = [f'{node_type}_{i+3}' for i in range(len(df))]
-                df['franchise'] = [name_str.capitalize() for i in range(len(df))]
+        if 'speaker' in csv_file and not 'all' in csv_file:      
+            df = pd.read_csv(csv_file, header=1)
+            df['uid'] = [f'{node_type}_{i+3}' for i in range(len(df))]
+            df['franchise'] = [name_str.capitalize() for i in range(len(df))]
         
         if 'vcheck' in csv_file:
             df.columns = [process_columns(col) for col in df.columns]
@@ -69,8 +68,8 @@ class Neo4jDataLoader:
         df = df.rename(columns=rename)
         df.columns = [col.lower() for col in df.columns]
 
-        if 'speaker' in csv_file:
-            df[['fname', 'lname']] = df['fullname'].str.split(n=1, expand=True)
+        #if 'speaker' in csv_file:
+        #    df[['fname', 'lname']] = df['fullname'].str.split(n=1, expand=True)
 
         # Split a row with two sap numbers into two rows
         if 'sap_no' in df.columns:
