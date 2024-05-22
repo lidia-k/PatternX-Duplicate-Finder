@@ -180,7 +180,19 @@ class DataPreprocessor:
     
     def _handle_missing_features(self, df, threshold=78):
         missing_per = df.isna().sum()/df.shape[0]*100
-        removed_features = missing_per[missing_per > threshold].index
+        print('missing_per')
+        print(missing_per.to_string())
+        removed_features = missing_per[missing_per > threshold].index.to_list()
+        # make sure that the same columns from both rtable and ltable in the dataframes are deleted
+        for c in removed_features:
+            table_name, col_name = c.split("_", 1)
+            if "ltable" == table_name:
+                if not (f"rtable_{col_name}" in removed_features):
+                    removed_features.append(f"rtable_{col_name}")
+            elif "rtable" == table_name:
+                if not (f"ltable_{col_name}" in removed_features):
+                    removed_features.append(f"ltable_{col_name}")
+
         df = df.drop(columns=removed_features)
         print(f'Removed {removed_features}')
 
@@ -196,13 +208,13 @@ class DataPreprocessor:
         Label the pairs as matching or non-matching and prepare the training data. 
         """
         matching_df = self._build_matching_pairs(size)
-    
+
         limit = len(matching_df) * skewed_factor
         non_matching_df, _ = self._build_non_matching_pairs(limit=limit)
         matching_df = matching_df[non_matching_df.columns]
-
         combined_df = pd.concat([matching_df, non_matching_df], sort=False)
-      
+        combined_df = self._handle_missing_features(combined_df)
+
         return self._load_data(combined_df)
     
     def prepare_test_data(self):
