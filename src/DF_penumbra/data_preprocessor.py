@@ -45,7 +45,7 @@ class DataPreprocessor:
     def _handle_int_cols(self, df):
         int_cols = ['ltable_' + col for col in constants.INT_COLS] + ['rtable_' + col for col in constants.INT_COLS]
         df = process_int_cols(df, int_cols)
-        df.replace(0, np.nan, inplace=True)
+        df.replace('0', np.nan, inplace=True)
         return df
 
     def _create_df(self, result, label=0):
@@ -107,13 +107,10 @@ class DataPreprocessor:
 
         paired_df = pd.DataFrame(paired_data)
         self._handle_int_cols(paired_df)
+        paired_df['label'] = 0
 
-        sample_df = paired_df.sample(n=limit, random_state=1)
-        sample_df['label'] = 0
-        
+        sample_df = paired_df.sample(n=limit, random_state=1)        
         dropped_df = paired_df.drop(sample_df.index)
-        dropped_df.to_csv('dropped.csv', index=False)
-
         print(f'The number of non-matching pairs:', len(sample_df))
         return sample_df, dropped_df
        
@@ -143,12 +140,7 @@ class DataPreprocessor:
         result = self.graph.cypher_transaction(q)
         df = self._create_df(result, label=1)
         df = shuffle(df, random_state=1).reset_index(drop=True)
-
-        # Split the first 46 rows for the test case 2
-        df_46 = df.loc[:46, :].to_csv('46.csv', index=False)
-        matching_df = df.loc[46:, :]
-        print(f'The number of matching pairs:', len(matching_df))
-        return matching_df
+        return df
         
     def _split_tables(self, df):
         """
@@ -158,10 +150,6 @@ class DataPreprocessor:
         df['id'] = df.index
         df['ltable_id'] = df['id']
         df['rtable_id'] = df['id']
-        #combined_df = combined_df.loc[:, ['label', 'ltable_uid', 'rtable_uid', 'ltable_npi', 'rtable_npi', 'ltable_fullname', 'rtable_fullname']]
-        
-        # Remove the 'uid' columns for training the XGBoost model 
-        #df.drop(columns=['ltable_uid', 'rtable_uid'], inplace=True)
         df.to_csv('C.csv', index=False)
 
         ltable_cols = [col for col in df.columns if 'ltable_' in col]
@@ -181,14 +169,19 @@ class DataPreprocessor:
         self._split_tables(df)
 
         A = em.read_csv_metadata('A.csv', key='ltable_id')
+        A = process_int_cols(A, constants.INT_COLS)
+
         B = em.read_csv_metadata('B.csv', key='rtable_id')
+        B = process_int_cols(B, constants.INT_COLS)
+
         C = em.read_csv_metadata(
             'C.csv', key='id', ltable=A, rtable=B,
             fk_ltable='ltable_id', fk_rtable='rtable_id'
         )
+        C = self._handle_int_cols(C)
         return A, B, C
     
-    def _handle_missing_features(self, df, threshold=78):
+    def _handle_missing_features(self, df, threshold=78, model=None):
         missing_per = df.isna().sum()/df.shape[0]*100
         print('missing_per')
         print(missing_per.to_string())
@@ -207,26 +200,42 @@ class DataPreprocessor:
 
         df = df.drop(columns=removed_features)
         print(f'Removed {removed_features}')
-
-        for col in df.columns:
-            if df[col].dtype == 'object':
-                df[col] = df[col].fillna('UNKNOWN').astype(object)
-            if df[col].dtype.name == 'Int64':
-                df[col] = df[col].fillna(-1)
+        
+        # Impute missing values for decision tree and random forest
+        if model != 'xgb':
+            for col in df.columns:
+                if df[col].dtype == 'object':
+                    df[col] = df[col].fillna('UNKNOWN').astype(object)
+                if df[col].dtype.name == 'Int64':
+                    df[col] = df[col].fillna(-1)
         return df 
+    
+    def _prepare_test_data(self, df, cols, filename):
+        df = df[cols]
+        df.to_csv(filename, index=False)
 
-    def prepare_training_data(self, skewed_factor, size):
+    def prepare_training_data(self, skewed_factor, size, model=None):
         """
         Label the pairs as matching or non-matching and prepare the training data. 
         """
         matching_df = self._build_matching_pairs(size)
 
         limit = len(matching_df) * skewed_factor
-        non_matching_df, _ = self._build_non_matching_pairs(limit=limit)
+        non_matching_df, dropped_df = self._build_non_matching_pairs(limit=limit)
         matching_df = matching_df[non_matching_df.columns]
-        
+
+        # Split the first 46 rows for the test case 2
+        df_46 = matching_df.loc[:46, :]
+        matching_df = matching_df.loc[46:, :]
+        print(f'The number of matching pairs:', len(matching_df))
+
         combined_df = pd.concat([matching_df, non_matching_df], sort=False)
-        combined_df = self._handle_missing_features(combined_df)
+        combined_df = self._handle_missing_features(combined_df, model=model)
+
+        # Prepare and save the test data
+        test_dfs = {'46.csv': df_46, 'dropped.csv': dropped_df}
+        for filename, test_df in test_dfs.items():
+            self._prepare_test_data(test_df, combined_df.columns, filename)
 
         return self._load_data(combined_df)
     
@@ -234,49 +243,51 @@ class DataPreprocessor:
         csv_test2 = "test2.csv"
         if os.path.exists(csv_test2):
             df = pd.read_csv(csv_test2)
-        else:
-            result = []
-            props = ['email', 'sap_no']
-            for prop in props:
-                matching_q = f'''
-                MATCH (a), (b)
-                WHERE a.{prop} = b.{prop} AND a <> b AND NOT (a)-[]-(b)
-                RETURN DISTINCT a, b
-                LIMIT 20
-                '''
-                matching_result = self.graph.cypher_transaction(matching_q)
-                result.extend(matching_result)
-            
-            non_matching_q = '''
+            return df
+
+        result = []
+        props = ['email', 'sap_no']
+        for prop in props:
+            matching_q = f'''
             MATCH (a), (b)
-            WHERE a.email <> b.email AND a.sap_no = b.sap_no AND a <> b AND NOT (a)-[]-(b)
+            WHERE a.{prop} = b.{prop} AND a <> b AND NOT (a)-[]-(b)
             RETURN DISTINCT a, b
-            LIMIT 14
+            LIMIT 20
             '''
-            non_matching_result = self.graph.cypher_transaction(non_matching_q)
-            result.extend(non_matching_result)
+            matching_result = self.graph.cypher_transaction(matching_q)
+            result.extend(matching_result)
+        
+        non_matching_q = '''
+        MATCH (a), (b)
+        WHERE a.email <> b.email AND a.sap_no = b.sap_no AND a <> b AND NOT (a)-[]-(b)
+        RETURN DISTINCT a, b
+        LIMIT 14
+        '''
+        non_matching_result = self.graph.cypher_transaction(non_matching_q)
+        result.extend(non_matching_result)
 
-            df = self._create_df(result)
-            df.to_csv(csv_test2, index=False)
-
+        df = self._create_df(result)
         # Add the label 1 training data to the test data
         df_46 = pd.read_csv('46.csv')
-        df = pd.concat([df, df_46], sort=False)
 
-        df = self._handle_int_cols(df)
-        df.drop(columns=['label'], inplace=True)
+        combined_df = pd.concat([df, df_46], sort=False)
+        combined_df = combined_df[df_46.columns]
+
+        combined_df = self._handle_int_cols(combined_df)
+        combined_df.drop(columns=['label'], inplace=True)
         #df[['ltable_fullname', 'rtable_fullname',
         #    'ltable_email', 'rtable_email', 'ltable_sap_no', 'rtable_sap_no']].to_csv('test.csv', index=False)
-        return df
+        combined_df.to_csv(csv_test2, index=False)
+        return combined_df
 
-    def prepare_alldata_exclude_traindata(self):
-        # exclude the data used for training (change the size corresponding to the size used for training)
+    def prepare_all_data(self):
+        # exclude the data used for training 
         ltable, rtable, data = self.prepare_training_data(skewed_factor=2, size=None)
         exclude_uids = ltable["uid"].unique().tolist()
         exclude_uids.extend(rtable["uid"].unique().tolist())
         exclude_uids = list(set(exclude_uids))
 
-        # fetch all data from Neo (exclude exclude_uids)
+        # fetch all data from Neo4J except for exclude_uids
         q = f'''
         MATCH (n)
         WHERE NOT n.uid in {exclude_uids}
@@ -293,7 +304,11 @@ class DataPreprocessor:
             right_dict = {'rtable_' + col: val for col, val in right.items()}
             paired_data.append({**left_dict, **right_dict})
 
+        cols_to_drop = ['id', 'ltable_id', 'rtable_id', 'ltable_uid', 'rtable_uid', 'label']
+        data.drop(columns=cols_to_drop, inplace=True)
+        
         paired_df = pd.DataFrame(paired_data)
+        paired_df = paired_df[data.columns]
         df = self._handle_int_cols(paired_df)
         return df
 
