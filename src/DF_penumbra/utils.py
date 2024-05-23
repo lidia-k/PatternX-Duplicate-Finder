@@ -10,7 +10,7 @@ def process_columns(prop):
 def process_int_cols(df, cols):
     for col in cols:
         if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int).astype('Int64')
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int).astype(str)
     return df
 
 def process_bi_emails(df):
