@@ -231,28 +231,33 @@ class DataPreprocessor:
         return self._load_data(combined_df)
     
     def prepare_test_data(self):
-        result = []
-        props = ['email', 'sap_no']
-        for prop in props:
-            matching_q = f'''
+        csv_test2 = "test2.csv"
+        if os.path.exists(csv_test2):
+            df = pd.read_csv(csv_test2)
+        else:
+            result = []
+            props = ['email', 'sap_no']
+            for prop in props:
+                matching_q = f'''
+                MATCH (a), (b)
+                WHERE a.{prop} = b.{prop} AND a <> b AND NOT (a)-[]-(b)
+                RETURN DISTINCT a, b
+                LIMIT 20
+                '''
+                matching_result = self.graph.cypher_transaction(matching_q)
+                result.extend(matching_result)
+            
+            non_matching_q = '''
             MATCH (a), (b)
-            WHERE a.{prop} = b.{prop} AND a <> b AND NOT (a)-[]-(b)
+            WHERE a.email <> b.email AND a.sap_no = b.sap_no AND a <> b AND NOT (a)-[]-(b)
             RETURN DISTINCT a, b
-            LIMIT 20
+            LIMIT 14
             '''
-            matching_result = self.graph.cypher_transaction(matching_q)
-            result.extend(matching_result)
-        
-        non_matching_q = '''
-        MATCH (a), (b)
-        WHERE a.email <> b.email AND a.sap_no = b.sap_no AND a <> b AND NOT (a)-[]-(b)
-        RETURN DISTINCT a, b
-        LIMIT 14
-        '''
-        non_matching_result = self.graph.cypher_transaction(non_matching_q)
-        result.extend(non_matching_result)
+            non_matching_result = self.graph.cypher_transaction(non_matching_q)
+            result.extend(non_matching_result)
 
-        df = self._create_df(result)
+            df = self._create_df(result)
+            df.to_csv(csv_test2, index=False)
 
         # Add the label 1 training data to the test data
         df_46 = pd.read_csv('46.csv')
