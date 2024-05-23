@@ -185,10 +185,12 @@ class DataPreprocessor:
         missing_per = df.isna().sum()/df.shape[0]*100
         print('missing_per')
         print(missing_per.to_string())
+        
         removed_features = missing_per[missing_per > threshold].index.to_list()
-        # make sure that the same columns from both rtable and ltable in the dataframes are deleted
-        for c in removed_features:
-            table_name, col_name = c.split("_", 1)
+        
+        # make sure that the same columns from both rtable and ltable are deleted
+        for col in removed_features:
+            table_name, col_name = col.split("_", 1)
             if "ltable" == table_name:
                 if not (f"rtable_{col_name}" in removed_features):
                     removed_features.append(f"rtable_{col_name}")
@@ -215,6 +217,7 @@ class DataPreprocessor:
         limit = len(matching_df) * skewed_factor
         non_matching_df, _ = self._build_non_matching_pairs(limit=limit)
         matching_df = matching_df[non_matching_df.columns]
+        
         combined_df = pd.concat([matching_df, non_matching_df], sort=False)
         combined_df = self._handle_missing_features(combined_df)
 
