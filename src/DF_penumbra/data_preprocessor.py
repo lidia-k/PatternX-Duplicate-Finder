@@ -169,19 +169,28 @@ class DataPreprocessor:
         self._split_tables(df)
 
         A = em.read_csv_metadata('A.csv', key='ltable_id')
-        A = process_int_cols(A, constants.INT_COLS)
+        if any(A.dtypes == 'float64'):
+            A = process_int_cols(A, constants.INT_COLS)
 
         B = em.read_csv_metadata('B.csv', key='rtable_id')
-        B = process_int_cols(B, constants.INT_COLS)
+        if any(B.dtypes == 'float64'):
+            B = process_int_cols(B, constants.INT_COLS)
 
         C = em.read_csv_metadata(
             'C.csv', key='id', ltable=A, rtable=B,
             fk_ltable='ltable_id', fk_rtable='rtable_id'
         )
-        C = self._handle_int_cols(C)
+        if any(C.dtypes == 'float64'):
+            C = self._handle_int_cols(C)
+            
         return A, B, C
+
+    def _impute_missing_features(self, df):
+        for col in df.columns:
+            df[col] = df[col].fillna('UNKNOWN').astype(object)
+        return df
     
-    def _handle_missing_features(self, df, threshold=78, model=None):
+    def _drop_high_missing_features(self, df, threshold=78):
         missing_per = df.isna().sum()/df.shape[0]*100
         print('missing_per')
         print(missing_per.to_string())
@@ -200,14 +209,6 @@ class DataPreprocessor:
 
         df = df.drop(columns=removed_features)
         print(f'Removed {removed_features}')
-        
-        # Impute missing values for decision tree and random forest
-        if model != 'xgb':
-            for col in df.columns:
-                if df[col].dtype == 'object':
-                    df[col] = df[col].fillna('UNKNOWN').astype(object)
-                if df[col].dtype.name == 'Int64':
-                    df[col] = df[col].fillna(-1)
         return df 
     
     def _prepare_test_data(self, df, cols, filename):
@@ -230,7 +231,9 @@ class DataPreprocessor:
         print(f'The number of matching pairs:', len(matching_df))
 
         combined_df = pd.concat([matching_df, non_matching_df], sort=False)
-        combined_df = self._handle_missing_features(combined_df, model=model)
+        combined_df = self._drop_high_missing_features(combined_df)
+        if model != 'xgb':
+            combined_df = self._impute_missing_features(combined_df)
 
         # Prepare and save the test data
         test_dfs = {'46.csv': df_46, 'dropped.csv': dropped_df}
@@ -239,10 +242,11 @@ class DataPreprocessor:
 
         return self._load_data(combined_df)
     
-    def prepare_test_data(self):
+    def prepare_test2_data(self):
         csv_test2 = "test2.csv"
         if os.path.exists(csv_test2):
             df = pd.read_csv(csv_test2)
+            df = self._handle_int_cols(df)
             return df
 
         result = []
@@ -269,11 +273,10 @@ class DataPreprocessor:
         df = self._create_df(result)
         # Add the label 1 training data to the test data
         df_46 = pd.read_csv('46.csv')
+        df_46 = self._handle_int_cols(df_46)
 
         combined_df = pd.concat([df, df_46], sort=False)
         combined_df = combined_df[df_46.columns]
-
-        combined_df = self._handle_int_cols(combined_df)
         combined_df.drop(columns=['label'], inplace=True)
         #df[['ltable_fullname', 'rtable_fullname',
         #    'ltable_email', 'rtable_email', 'ltable_sap_no', 'rtable_sap_no']].to_csv('test.csv', index=False)
