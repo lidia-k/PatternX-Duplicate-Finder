@@ -13,7 +13,7 @@ from src.utils import auto_config as config
 
 
 class DataPreprocessor:
-    def __init__(self, data_dir, include_npi):
+    def __init__(self, data_dir, include_npi, training=False):
         self.graph = Graph(
             config.NEO4J_URL,
             config.NEO4J_USER,
@@ -21,6 +21,7 @@ class DataPreprocessor:
         )
         self.data_dir = data_dir
         self.include_npi = include_npi
+        self.training = training
     
     def detect_high_missing_props(self, missing_percentage_threshold=59.2):
         q = '''
@@ -51,11 +52,13 @@ class DataPreprocessor:
         node_pairs = [(record[0], record[1]) for record in result]
 
         all_props = set()
-        all_props.update(['lic_state', 'title', 'license'])
         for node_a, node_b in node_pairs:
             all_props.update(dict(node_a).keys())
             all_props.update(dict(node_b).keys())
         
+        all_props.remove('fullname')
+        if self.training:
+            all_props.remove('uid')
         if not self.include_npi:
             all_props.remove('npi')
 
@@ -87,8 +90,12 @@ class DataPreprocessor:
         result = self.graph.cypher_transaction(q)
 
         df = pd.DataFrame([dict(record[0]) for record in result])
+        dropped_cols = ['fullname']
+        if self.training:
+            dropped_cols.append('uid')
         if not self.include_npi:
-            df.drop(columns=['npi'], inplace=True)
+            dropped_cols.append('npi')
+        df.drop(columns=dropped_cols, inplace=True)
         
         pairs = [(df.iloc[i], df.iloc[j]) for i, j in combinations(range(len(df)), 2)]
         paired_data = []

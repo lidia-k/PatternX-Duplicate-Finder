@@ -172,7 +172,7 @@ if __name__ == '__main__':
         data_dir = 'src/data'
 
         print('Preparing training data with{} NPI...'.format('' if args.npi else 'out'))
-        dp = DataPreprocessor(data_dir, include_npi=args.npi)
+        dp = DataPreprocessor(data_dir, include_npi=args.npi, training=True)
         ltable, rtable, data = dp.prepare_training_data(skewed_factor=2, size=args.size)
 
         print('Training {} with{} NPI...'.format(args.m_model, '' if args.npi else 'out'))
@@ -253,7 +253,7 @@ if __name__ == '__main__':
         A, B, C = dp._load_data(df)
 
         mt = MagellanTrainer(A, B, C, model)
-        preds = mt.predict(C)
+        preds = mt.predict(C, all=True)
 
     elif args.project == 'penumbra' and args.task == 'feature':
         model = joblib.load('model.pkl')
