@@ -199,6 +199,8 @@ if __name__ == '__main__':
         if not args.m_model:
             raise ValueError('Please specify the model used for training.')
 
+        print(f'Running the test 1 for {args.m_model}')
+
         data_dir = 'src/data'
         model = joblib.load('model.pkl')
 
@@ -236,6 +238,8 @@ if __name__ == '__main__':
         if not args.m_model:
             raise ValueError('Please specify the model used for training.')
         
+        print(f'Running the test 2 for {args.m_model}')
+
         data_dir = 'src/data'
         model = joblib.load('model.pkl')
         # If the model is trained with NPIs, make sure include --npi flag to the run command.
@@ -259,12 +263,20 @@ if __name__ == '__main__':
 
         Run predictions on the entire data except for the training data
         """
+        if not args.m_model:
+            raise ValueError('Please specify the model used for training.')
+        
+        print(f'Running {args.m_model} over the entire data...')
+
         data_dir = 'src/data'
         model = joblib.load('model.pkl')
         dp = DataPreprocessor(data_dir, include_npi=args.npi)
 
         df = dp.prepare_all_data()
+        if args.m_model != 'xgb':
+            df = dp._impute_missing_features(df)
         print("df", df)
+
         A, B, C = dp._load_data(df)
 
         mt = MagellanTrainer(A, B, C, model)
