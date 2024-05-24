@@ -24,11 +24,11 @@ class Graph:
         self._password = password
 
     # Helper function that runs cypher transaction on local database
-    def cypher_transaction(self, cypher):
+    def cypher_transaction(self, cypher, parameters=None):
         driver = GraphDatabase.driver(self._url, auth=(self._username, self._password))
         values = []
         with driver.session() as session:
-            res = session.run(cypher)
+            res = session.run(cypher, parameters=parameters)
             for record in res:
                 values.append(record.values())
         driver.close()
