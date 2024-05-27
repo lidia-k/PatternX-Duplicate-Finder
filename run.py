@@ -154,10 +154,6 @@ if __name__ == '__main__':
         eb = EdgeBuilder()
         eb.handle_o_dups()
 
-    elif args.project == 'penumbra' and args.task == 'synonym_create':
-        dl = Neo4jSynonymNodeCreator()
-        dl.create_synonym_nodes()
-
     elif args.project == 'penumbra' and args.task == 'm_training':
         """
         Prepare the training data, train the Magellan model, and evaluate the model.

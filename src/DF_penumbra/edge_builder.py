@@ -126,7 +126,7 @@ class EdgeBuilder:
         driver = self.graph.get_driver()
         with driver.session() as session:
             self._build_o_dup_edges(session)
-            self._create_r1_master_nodes(session)
+            #self._create_r1_master_nodes(session)
 
     def lookup_o_dups(self):
         driver = self.graph.get_driver()
