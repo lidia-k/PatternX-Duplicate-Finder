@@ -25,24 +25,17 @@ class Neo4jSynonymNodeCreator:
             # Create synonym nodes and copy properties and relationships
             for synonym in synonyms:
                 count += 1
-                # Create the new synonym node with copied properties
-                properties = {"fname": synonym}
-                properties.update(
-                    {
-                        key: row[key]
-                        for key in row.index
-                        if (key != "fname" or key != "node_id")
-                        and not pd.isna(row[key])
-                    }
-                )
-
                 # Create the new node
                 create_node_query = """
-                CREATE (synonym_node:Synonym $properties)
-                RETURN id(synonym_node)
-                """
+                MATCH (n)
+                WHERE ID(n) = $original_id
+                CREATE (copy:Synonym)
+                SET copy = n
+                SET copy.fname = $synonym
+                SET copy.fullname = $synonym + '  ' + copy.lastname
+                RETURN id(copy)"""
                 result = self.graph.cypher_transaction(
-                    create_node_query, {"properties": properties}
+                    create_node_query, {"original_id": row["node_id"], "synonym": synonym}
                 )
                 synonym_node_id = result[0][0]
 
