@@ -1,4 +1,3 @@
-
 import pandas as pd
 
 from src.dao.NEO4J_Graph import Graph
@@ -32,10 +31,15 @@ class Neo4jSynonymNodeCreator:
                 CREATE (copy:Synonym)
                 SET copy = n
                 SET copy.fname = $synonym
-                SET copy.fullname = $synonym + '  ' + copy.lastname
+                SET copy.fullname = $fullname
                 RETURN id(copy)"""
                 result = self.graph.cypher_transaction(
-                    create_node_query, {"original_id": row["node_id"], "synonym": synonym}
+                    create_node_query,
+                    {
+                        "original_id": row["node_id"],
+                        "synonym": synonym,
+                        "fullname": "{} {}".format(synonym, row["lname"]),
+                    },
                 )
                 synonym_node_id = result[0][0]
 
