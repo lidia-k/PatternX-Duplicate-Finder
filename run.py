@@ -5,7 +5,6 @@ import pandas as pd
 import numpy as np
 
 #from DF_adventureworks.duplicate_finder import DuplicateFinder
-from src.DF_penumbra.data_synonym import Neo4jSynonymNodeCreator
 from src.modelling.model_evaluation import PenumbraEvaluation
 from src.modelling.model_deployment import PenumbraModelDeployer
 from src.data.data_collection import PenumbraDataCollector
@@ -153,6 +152,10 @@ if __name__ == '__main__':
         print('Building edges and master nodes for obvious duplicates')
         eb = EdgeBuilder()
         eb.handle_o_dups()
+    
+    elif args.project == 'penumbra' and args.task == 'synonym':
+        dl = Neo4jDataLoader()
+        dl.create_synonym_nodes()
 
     elif args.project == 'penumbra' and args.task == 'm_training':
         """
