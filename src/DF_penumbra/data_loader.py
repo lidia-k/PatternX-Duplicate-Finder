@@ -64,9 +64,12 @@ class Neo4jDataLoader:
             for col in ['first_name', 'last_name']:
                 df[col] = df[col].str.capitalize()
 
-        # Renmae columns and convert to lowercase
+        # Rename columns and convert to lowercase
         df = df.rename(columns=rename)
         df.columns = [col.lower() for col in df.columns]
+        
+        if 'speaker' in csv_file:
+            df[['fname', 'lname']] = df['fullname'].str.split(' ', n=1, expand=True)
 
         # Split a row with two sap numbers into two rows
         if 'sap_no' in df.columns:
