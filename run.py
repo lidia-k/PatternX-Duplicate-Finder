@@ -152,10 +152,14 @@ if __name__ == '__main__':
         print('Building edges and master nodes for obvious duplicates')
         eb = EdgeBuilder()
         eb.handle_o_dups()
-    
+
     elif args.project == 'penumbra' and args.task == 'synonym':
         dl = Neo4jDataLoader()
         dl.create_synonym_nodes()
+
+    elif args.project == 'penumbra' and args.task == 'synoname':
+        dl = Neo4jDataLoader()
+        dl.create_synoname_nodes()
 
     elif args.project == 'penumbra' and args.task == 'm_training':
         """

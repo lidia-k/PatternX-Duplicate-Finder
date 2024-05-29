@@ -57,7 +57,7 @@ class Neo4jDataLoader:
             df = pd.read_csv(csv_file, header=1)
             df['uid'] = [f'{node_type}_{i+3}' for i in range(len(df))]
             df['franchise'] = [name_str.capitalize() for i in range(len(df))]
-        
+
         if 'vcheck' in csv_file:
             df.columns = [process_columns(col) for col in df.columns]
             rename = constants.PO_VC_COLS
@@ -67,7 +67,7 @@ class Neo4jDataLoader:
         # Rename columns and convert to lowercase
         df = df.rename(columns=rename)
         df.columns = [col.lower() for col in df.columns]
-        
+
         if 'speaker' in csv_file:
             df[['fname', 'lname']] = df['fullname'].str.split(' ', n=1, expand=True)
 
@@ -81,7 +81,7 @@ class Neo4jDataLoader:
 
         # Convert columns to int
         df = process_int_cols(df, constants.INT_COLS)
-        
+
         # Replace null values with np.nan
         null_val = [0, '0', 'N/A', '#N/A', 'N/A ', 'n/a (ask Carson Milner)', 'unknown']
         df.replace(null_val, np.nan, inplace=True)
@@ -123,7 +123,7 @@ class Neo4jDataLoader:
         for f in data_bundles:
             fname = self._prepare_csv_file(f)
             self._load_data_from_cypher(fname)
-    
+
     def create_synonym_nodes(self):
         synonym_dict = get_synonyms()
         fnames = list(synonym_dict.keys())
@@ -132,7 +132,7 @@ class Neo4jDataLoader:
         result = self.graph.cypher_transaction(q)
         df = pd.DataFrame([dict(record[0], node_id=record[1]) for record in result])
         print(df)
-        
+
         count = 0
         for i, row in df.iterrows():
             fname = row["fname"]
@@ -176,7 +176,7 @@ class Neo4jDataLoader:
 
                 # Copy relationships from original node to new synonym node
                 self._copy_relationships(row["node_id"], synonym_node_id)
-       
+
         print(f"Added node {count}")
 
     def _copy_relationships(self, original_node_id, synonym_node_id):
@@ -207,3 +207,25 @@ class Neo4jDataLoader:
             copy_incoming_rels_query,
             {"original_node_id": original_node_id, "synonym_node_id": synonym_node_id},
         )
+
+    def create_synoname_nodes(self):
+        add = 0
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+
+        with open(dir_path + "/data/synonyms.txt", "r", encoding="utf-8") as file:
+            for line in file:
+                columns = line.strip().split("\t")
+                properties = {
+                    "name": columns[0] + (", {}".format(columns[4]) if len(columns) == 5 else ""),
+                    "origin": columns[1],
+                    "gender": columns[2],
+                    "meaning": columns[3] if len(columns) > 4 else None
+                }
+                q = """
+                CREATE (synonym:Synoname $properties)
+                RETURN synonym
+                """
+                self.graph.cypher_transaction(q, {"properties": properties})
+                add += 1
+        print("Added {} Synoname nodes.".format(add))
+        print("Note - use this cypher command to delete all Synoname nodes: MATCH (n:Synoname) DELETE n")
