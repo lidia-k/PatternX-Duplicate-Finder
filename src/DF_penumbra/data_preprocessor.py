@@ -13,7 +13,7 @@ from src.utils import auto_config as config
 
 
 class DataPreprocessor:
-    def __init__(self, data_dir, include_npi, training=False):
+    def __init__(self, data_dir, include_npi, training=False, include_synonyms=False):
         self.graph = Graph(
             config.NEO4J_URL,
             config.NEO4J_USER,
@@ -21,6 +21,7 @@ class DataPreprocessor:
         )
         self.data_dir = data_dir
         self.include_npi = include_npi
+        self.include_synonyms = include_synonyms
         self.training = training
     
     def detect_high_missing_props(self, missing_percentage_threshold=59.2):
@@ -82,9 +83,15 @@ class DataPreprocessor:
         """
         For nodes that have different npis, create a non-matching pair.
         """
-        q = f'''
+        base_q = f'''
         MATCH (n)
-        WHERE NOT n:Master AND n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())
+        WHERE n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())
+        '''
+        syn_c = ''
+        if not self.include_synonyms:
+            syn_c = 'AND NOT n:Synonym '
+        q = f'''
+        {base_q} {syn_c}
         RETURN n
         '''
         result = self.graph.cypher_transaction(q)
@@ -128,10 +135,19 @@ class DataPreprocessor:
             A DataFrame containing the distinct pairs of nodes that match the criteria, with a column labeled '1'.
         """
         edge_types = ['r1_' + et for et in constants.EDGE_TYPES]
-        q = f'''
+        base_q = f'''
         UNWIND {edge_types} AS type
         MATCH (a)-[r]->(b)
-        WHERE type(r) = type AND a.uid <> b.uid
+        WHERE type(r) = type AND a.uid <> b.uid AND id(a) < id(b)
+        '''
+        syn_c = ''
+        if not self.include_synonyms:
+            syn_c = '''
+                AND (a:Provider OR a:Speaker)
+                AND (b:Provider OR b:Speaker)
+            '''
+        q = f'''
+        {base_q} {syn_c}
         RETURN DISTINCT a, b
         '''
         if size is not None:
@@ -184,11 +200,6 @@ class DataPreprocessor:
             C = self._handle_int_cols(C)
             
         return A, B, C
-
-    def _impute_missing_features(self, df):
-        for col in df.columns:
-            df[col] = df[col].fillna('UNKNOWN').astype(object)
-        return df
     
     def _drop_high_missing_features(self, df, threshold=78):
         missing_per = df.isna().sum()/df.shape[0]*100
@@ -232,8 +243,6 @@ class DataPreprocessor:
 
         combined_df = pd.concat([matching_df, non_matching_df], sort=False)
         combined_df = self._drop_high_missing_features(combined_df)
-        if model != 'xgb':
-            combined_df = self._impute_missing_features(combined_df)
 
         # Prepare and save the test data
         test_dfs = {'46.csv': df_46, 'dropped.csv': dropped_df}
@@ -254,16 +263,15 @@ class DataPreprocessor:
         for prop in props:
             matching_q = f'''
             MATCH (a), (b)
-            WHERE a.{prop} = b.{prop} AND a <> b AND NOT (a)-[]-(b)
+            WHERE a.{prop} = b.{prop} AND id(a) < id(b) AND NOT (a)-[]-(b)
             RETURN DISTINCT a, b
-            LIMIT 20
             '''
             matching_result = self.graph.cypher_transaction(matching_q)
             result.extend(matching_result)
-        
+
         non_matching_q = '''
         MATCH (a), (b)
-        WHERE a.email <> b.email AND a.sap_no = b.sap_no AND a <> b AND NOT (a)-[]-(b)
+        WHERE a.email <> b.email AND a.sap_no <> b.sap_no AND id(a) < id(b) AND NOT (a)-[]-(b)
         RETURN DISTINCT a, b
         LIMIT 14
         '''
