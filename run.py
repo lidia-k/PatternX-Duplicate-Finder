@@ -28,6 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('--project', choices=choices, type=str, help='The project to run')
     parser.add_argument("--task", type=str, default=None, help="task name:{train, predict, online_train}",  metavar='')
     parser.add_argument("--m_model", choices=model_choices, type=str, default=None, help="Magellan model name",  metavar='')
+    parser.add_argument("--synonym", action="store_true", help="Include name synonyms for training (default: exclude synonyms)")
     parser.add_argument("--size", type=int, default=None, help="Size parameter for the task", metavar='')
     parser.add_argument("--npi", action="store_true", help="Include NPIs for training (default: exclude NPIs)")
     parser.add_argument("--model", type=str, default=None, help="model name",  metavar='')
@@ -178,9 +179,9 @@ if __name__ == '__main__':
         data_dir = 'src/data'
 
         print('Preparing training data with{} NPI...'.format('' if args.npi else 'out'))
-        dp = DataPreprocessor(data_dir, include_npi=args.npi, training=True)
+        dp = DataPreprocessor(data_dir, include_npi=args.npi, training=True, include_synonyms=args.synonym)
         ltable, rtable, data = dp.prepare_training_data(skewed_factor=2, size=args.size, model=args.m_model)
-
+ 
         print('Training {} with{} NPI...'.format(args.m_model, '' if args.npi else 'out'))
         mt = MagellanTrainer(ltable, rtable, data, model=args.m_model, training=True)
         mt.train_model()
@@ -218,8 +219,6 @@ if __name__ == '__main__':
 
         dp = DataPreprocessor(data_dir, include_npi=include_npi)
         df = dp._handle_int_cols(data)
-        if args.model != 'xgb':
-            df = dp._impute_missing_features(df)
         A, B, C = dp._load_data(df)
 
         print('Running predictions on the label 0 test data with{} NPI...'.format('' if include_npi else 'out'))
@@ -248,12 +247,7 @@ if __name__ == '__main__':
         model = joblib.load('model.pkl')
         # If the model is trained with NPIs, make sure include --npi flag to the run command.
         dp = DataPreprocessor(data_dir, include_npi=args.npi)
-
         df = dp.prepare_test2_data()
-
-        if args.m_model != 'xgb':
-            df = dp._impute_missing_features(df)
-        
         A, B, C = dp._load_data(df)
 
         mt = MagellanTrainer(A, B, C, model)
@@ -277,8 +271,6 @@ if __name__ == '__main__':
         dp = DataPreprocessor(data_dir, include_npi=args.npi)
 
         df = dp.prepare_all_data()
-        if args.m_model != 'xgb':
-            df = dp._impute_missing_features(df)
         print("df", df)
 
         A, B, C = dp._load_data(df)
