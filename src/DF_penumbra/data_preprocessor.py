@@ -84,7 +84,7 @@ class DataPreprocessor:
         """
         q = f'''
         MATCH (n)
-        WHERE NOT n:Master AND n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())
+        WHERE (n:Provider OR n:Speaker) AND n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())
         RETURN n
         '''
         result = self.graph.cypher_transaction(q)
@@ -131,7 +131,7 @@ class DataPreprocessor:
         q = f'''
         UNWIND {edge_types} AS type
         MATCH (a)-[r]->(b)
-        WHERE type(r) = type AND a.uid <> b.uid
+        WHERE type(r) = type AND a.uid <> b.uid AND (a:Provider OR a:Speaker) AND (b:Provider OR b:Speaker)
         RETURN DISTINCT a, b
         '''
         if size is not None:
@@ -215,7 +215,19 @@ class DataPreprocessor:
         df = df[cols]
         df.to_csv(filename, index=False)
 
-    def prepare_training_data(self, skewed_factor, size, model=None):
+    def get_entire_data(self):
+        # fetch all data from Neo4J (Provider OR n:Speaker)
+        q = '''
+        MATCH (n)
+        WHERE (n:Provider OR n:Speaker)
+        RETURN n
+        '''
+        result = self.graph.cypher_transaction(q)
+
+        df = pd.DataFrame([dict(record[0]) for record in result])
+        return df
+
+    def get_training_data(self, skewed_factor, size=None):
         """
         Label the pairs as matching or non-matching and prepare the training data. 
         """
@@ -231,6 +243,13 @@ class DataPreprocessor:
         print(f'The number of matching pairs:', len(matching_df))
 
         combined_df = pd.concat([matching_df, non_matching_df], sort=False)
+        return combined_df, df_46, dropped_df
+        
+    def prepare_training_data(self, skewed_factor, size, model=None):
+        """
+        Label the pairs as matching or non-matching and prepare the training data. 
+        """
+        combined_df, df_46, dropped_df = self.get_training_data(skewed_factor, size)
         combined_df = self._drop_high_missing_features(combined_df)
         if model != 'xgb':
             combined_df = self._impute_missing_features(combined_df)
