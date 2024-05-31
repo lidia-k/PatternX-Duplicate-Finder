@@ -135,8 +135,8 @@ class Neo4jDataLoader:
         data_bundles = glob.glob(f'{self.data_dir}/*.csv')
         df_dict = {}
         for f in data_bundles:
-            fname = self._prepare_csv_file(f)
-            self._load_data_from_cypher(fname)
+            file_name, df = self._prepare_csv_file(f)
+            self._load_data_from_cypher(file_name)
 
     def create_synonym_nodes(self):
         synonym_dict = get_synonyms()
