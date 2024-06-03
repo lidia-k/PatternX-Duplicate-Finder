@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import py_entitymatching as em
-
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
 
 class MagellanTrainer:
 
@@ -29,7 +30,7 @@ class MagellanTrainer:
         self.data = data
         if training: 
             self.train_set, self.test_set = self._split_data()
-
+        self.model_name = model
         self._load_model(model)
         self.feature_table = self._load_feature_table(training)
     
@@ -91,14 +92,66 @@ class MagellanTrainer:
         em.vis_debug_rf(self.models[2], self.train_set, self.test_set, 
                         exclude_attrs=self.exclude_attrs,
                         target_attr='label')
+        
+    def _perform_grid_search(self, train_vectors):
+        if self.model_name == 'rf':
+            param_grid = {
+                'max_depth': [10, 20, 30],
+                'min_samples_split': [2, 5, 10],
+                'min_samples_leaf': [5, 10],
+                'n_estimators': [50, 100],
+            }
+        elif self.model_name == 'xgb':
+            param_grid = {
+                'learning_rate': [0.05, 0.1, 0.3],
+                'n_estimators': [50, 100],
+                'subsample': [0.6, 0.8, 1.0],
+                'colsample_bytree': [0.6, 0.8, 1.0],
+                'min_child_weight': [1, 5],
+                'scale_pos_weight': [1, 2],
+                #'gamma': [0, 0.1, 0.2, 0.3, 0.4, 0.5],
+                #'reg_alpha': [0, 0.01, 0.1, 1, 10],
+                #'reg_lambda': [0, 0.01, 0.1, 1, 10]
+            }
+
+        x_train = train_vectors.drop(columns=self.exclude_attrs, axis=1)
+        y_train = train_vectors['label']
+
+        #cv_scores = cross_val_score(self.model.clf, x_train, y_train, cv=3, scoring='f1')
+
+        grid_search = GridSearchCV(
+            estimator=self.model.clf, 
+            param_grid=param_grid, 
+            scoring='f1',
+            cv=3,
+            verbose=1
+        )
+        grid_search.fit(x_train, y_train)
+        best_params = grid_search.best_params_
+        return best_params        
 
     def train_model(self):
         self.attrs_after = 'label'
         self.exclude_attrs.append(self.attrs_after)
         f_vectors = self._create_features(self.train_set)
-        
-        best_model = self._select_best_model(f_vectors)
+
         # You can choose to use the best model or a specific model. We're currently using a specific model.
+        # best_model = self._select_best_model(f_vectors)
+        params = self._perform_grid_search(f_vectors)
+        if self.model_name == 'rf':
+            self.model = em.RFMatcher(
+                name='RF', 
+                random_state=0, 
+                **params
+            )
+        if self.model_name == 'xgb':
+            self.model = em.XGBoostMatcher(
+                name='XGBoost', 
+                random_state=0, 
+                **params
+            )
+            
+        print(f'Training {self.model_name} model with {params}')
         self.model.fit(
             table=f_vectors, 
             exclude_attrs=self.exclude_attrs, 
