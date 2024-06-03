@@ -8,6 +8,7 @@ from sklearn.utils import shuffle
 
 from src.dao.NEO4J_Graph import Graph
 from src.DF_penumbra import constants
+from src.DF_penumbra.data import test_data
 from src.DF_penumbra.utils import process_int_cols
 from src.utils import auto_config as config
 
@@ -57,7 +58,7 @@ class DataPreprocessor:
             all_props.update(dict(node_a).keys())
             all_props.update(dict(node_b).keys())
         
-        all_props.remove('fullname')
+        #all_props.remove('fullname')
         if self.training:
             all_props.remove('uid')
         if not self.include_npi:
@@ -97,7 +98,8 @@ class DataPreprocessor:
         result = self.graph.cypher_transaction(q)
 
         df = pd.DataFrame([dict(record[0]) for record in result])
-        dropped_cols = ['fullname']
+        #dropped_cols = ['fullname']
+        dropped_cols = []
         if self.training:
             dropped_cols.append('uid')
         if not self.include_npi:
@@ -138,7 +140,7 @@ class DataPreprocessor:
         base_q = f'''
         UNWIND {edge_types} AS type
         MATCH (a)-[r]->(b)
-        WHERE type(r) = type AND a.uid <> b.uid AND id(a) < id(b)
+        WHERE type(r) = type AND id(a) < id(b)
         '''
         syn_c = ''
         if not self.include_synonyms:
@@ -225,12 +227,21 @@ class DataPreprocessor:
     def _prepare_test_data(self, df, cols, filename):
         df = df[cols]
         df.to_csv(filename, index=False)
+    
+    def _add_feedback_pairs(self):
+        for email in test_data.emails:
+            q = f'''
+            MATCH (a), (b)
+            WHERE a.email = '{email}' AND b.email = '{email}' AND id(a) < id(b)
+            MERGE (a)-[:r1_email]->(b)
+            '''
 
     def prepare_training_data(self, skewed_factor, size, model=None):
         """
         Label the pairs as matching or non-matching and prepare the training data. 
         """
         matching_df = self._build_matching_pairs(size)
+        #self._add_feedback_pairs()
 
         limit = len(matching_df) * skewed_factor
         non_matching_df, dropped_df = self._build_non_matching_pairs(limit=limit)
@@ -290,6 +301,35 @@ class DataPreprocessor:
         #    'ltable_email', 'rtable_email', 'ltable_sap_no', 'rtable_sap_no']].to_csv('test.csv', index=False)
         combined_df.to_csv(csv_test2, index=False)
         return combined_df
+
+    def prepare_sb_test_data(self):
+        cases = test_data.weak_cases
+        uids = {uid for id_set in cases for uid in id_set}
+        uids = "', '".join(uids)
+        q = f'''
+        MATCH (n)
+        WHERE n.uid IN ['{uids}']
+        RETURN n
+        '''
+        result = self.graph.cypher_transaction(q)
+        node_dict = {record[0]['uid']: record[0] for record in result}
+
+        pair_data = []
+        for id_set in cases:
+            pairs = list(combinations(id_set, 2))
+            for pair in pairs:
+                node_a = node_dict[pair[0]]
+                node_b = node_dict[pair[1]]
+                left_dict = {'ltable_' + col: val for col, val in node_a.items()}
+                right_dict = {'rtable_' + col: val for col, val in node_b.items()}
+                pair_data.append({**left_dict, **right_dict})
+        
+        df = pd.DataFrame(pair_data)
+        self._handle_int_cols(df)
+
+        df_46 = pd.read_csv('46.csv').drop(columns=['label'])
+        df = df[df_46.columns]
+        return df 
 
     def prepare_all_data(self):
         # exclude the data used for training 

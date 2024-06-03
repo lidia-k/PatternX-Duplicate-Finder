@@ -253,6 +253,22 @@ if __name__ == '__main__':
         mt = MagellanTrainer(A, B, C, model)
         preds = mt.predict(C)
         #mt.retrieve_feature_importance()
+    
+    elif args.project == 'penumbra' and args.task == 'test3':
+        if not args.m_model:
+            raise ValueError('Please specify the model used for training.')
+        
+        print(f'Running the test 3 for {args.m_model}')
+
+        data_dir = 'src/data'
+        model = joblib.load('model.pkl')
+        dp = DataPreprocessor(data_dir, include_npi=args.npi)
+        df = dp.prepare_sb_test_data()
+        A, B, C = dp._load_data(df)
+
+        mt = MagellanTrainer(A, B, C, model)
+        preds = mt.predict(C)
+        #mt.retrieve_feature_importance()
 
     elif args.project == 'penumbra' and args.task == 'predict-all':
         """
