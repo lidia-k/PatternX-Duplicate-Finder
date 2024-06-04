@@ -8,7 +8,7 @@ from sklearn.utils import shuffle
 
 from src.dao.NEO4J_Graph import Graph
 from src.DF_penumbra import constants
-from src.DF_penumbra.utils import process_fill_flname_na, process_first_name_synonyms, process_int_cols
+from src.DF_penumbra.utils import process_first_name_synonyms, process_int_cols
 from src.utils import auto_config as config
 
 
@@ -284,7 +284,7 @@ class DataPreprocessor:
         return combined_df
 
     def prepare_all_data(self):
-        # exclude the data used for training 
+        # exclude the data used for training
         ltable, rtable, data = self.prepare_training_data(skewed_factor=2, size=None)
         exclude_uids = ltable["uid"].unique().tolist()
         exclude_uids.extend(rtable["uid"].unique().tolist())
@@ -299,8 +299,6 @@ class DataPreprocessor:
         result = self.graph.cypher_transaction(q)
 
         df = pd.DataFrame([dict(record[0]) for record in result])
-        # replace lname, fname if they are empty
-        df = process_fill_flname_na(df)
         # name synonyms
         df = process_first_name_synonyms(df)
         pairs = [(df.iloc[i], df.iloc[j]) for i, j in combinations(range(len(df)), 2)]
@@ -309,8 +307,7 @@ class DataPreprocessor:
             left_dict = {'ltable_' + col: val for col, val in left.items()}
             right_dict = {'rtable_' + col: val for col, val in right.items()}
             paired_data.append({**left_dict, **right_dict})
-
-        cols_to_drop = ['id', 'ltable_id', 'rtable_id', 'ltable_uid', 'rtable_uid', 'label']
+        cols_to_drop = ['id', 'ltable_id', 'rtable_id', 'ltable_uid', 'rtable_uid', 'label', 'ltable_npi', 'rtable_npi']
         data.drop(columns=cols_to_drop, inplace=True)
         
         paired_df = pd.DataFrame(paired_data)

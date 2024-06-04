@@ -56,29 +56,6 @@ def get_synonyms():
     return name_synonyms
 
 
-def process_fill_flname_na(df):
-    def fill_names(row):
-        def get_first_last_name(fullname):
-            parts = fullname.split()
-            first_name = parts[0]
-            if "." in parts[0]:  # like: 'D. Christopher Metzger'
-                first_name = parts[1]
-                last_name = " ".join(parts[2:])
-            else:
-                last_name = " ".join(parts[1:])
-
-            return first_name, last_name
-
-        first_name, last_name = get_first_last_name(row["fullname"])
-        row["fname"] = first_name if pd.isna(row["fname"]) else row["fname"]
-        row["lname"] = last_name if pd.isna(row["lname"]) else row["lname"]
-        return row
-
-    df[["fname", "lname"]] = df.apply(fill_names, axis=1)[["fname", "lname"]]
-
-    return df
-
-
 def process_first_name_synonyms(df):
     name_synonyms = get_synonyms()
     df["fname"] = df["fname"].apply(
