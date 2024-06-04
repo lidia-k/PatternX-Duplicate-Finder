@@ -1,3 +1,4 @@
+import json
 import os
 import pandas as pd
 
@@ -42,3 +43,9 @@ def get_synonyms():
                 name_synonyms[name] = synonyms
 
     return name_synonyms
+
+
+def get_us_states():
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    with open(dir_path + "/data/us_states.json") as f_in:
+        return json.load(f_in)

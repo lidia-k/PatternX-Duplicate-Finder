@@ -22,29 +22,39 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     data_dir = "src/data"
-    dp = DataPreprocessor(data_dir, include_npi=True, training=True)
 
-    # -- Training data --
-    combined_df, df_46, dropped_df = dp.get_training_data(skewed_factor=2, size=None)
-    # Merge ltable and rtable into one
-    ltable_cols = [col for col in combined_df.columns if "ltable_" in col]
-    rtable_cols = [col for col in combined_df.columns if "rtable_" in col]
-    A = combined_df[ltable_cols]
-    A.columns = [col.replace("ltable_", "") for col in ltable_cols]
-    B = combined_df[rtable_cols]
-    B.columns = [col.replace("rtable_", "") for col in rtable_cols]
-    training_df = pd.concat([A, B], sort=False)
-    # removes duplicate rows based on all columns.
-    training_df = training_df.drop_duplicates()
-    print("Training data:")
-    print(training_df)
-    # -- Entire data --
-    entire_df = dp.get_entire_data()
-    print("Entire data:")
-    print(entire_df)
+    if args.task != "handle-features":
+        dp = DataPreprocessor(data_dir, include_npi=True, training=True)
+        # -- Training data --
+        combined_df, df_46, dropped_df = dp.get_training_data(
+            skewed_factor=2, size=None
+        )
+        # Merge ltable and rtable into one
+        ltable_cols = [col for col in combined_df.columns if "ltable_" in col]
+        rtable_cols = [col for col in combined_df.columns if "rtable_" in col]
+        A = combined_df[ltable_cols]
+        A.columns = [col.replace("ltable_", "") for col in ltable_cols]
+        B = combined_df[rtable_cols]
+        B.columns = [col.replace("rtable_", "") for col in rtable_cols]
+        training_df = pd.concat([A, B], sort=False)
+        # removes duplicate rows based on all columns.
+        training_df = training_df.drop_duplicates()
+        drop_org_columns = ["og_state", "og_country", "og_specialty"]
+        training_df.drop(columns=drop_org_columns, inplace=True)
+        
+        print("Training data:")
+        print(training_df)
+        # -- Entire data --
+        entire_df = dp.get_entire_data()
+        print("Entire data:")
+        print(entire_df)
+        entire_df.drop(columns=drop_org_columns, inplace=True)
 
-    if args.task == "missing-features":
+    if args.task == "handle-features":
+        dl = Neo4jDataLoader(data_dir)
+        dl.data_optimization()
 
+    elif args.task == "missing-features":
         # non missing percent
         t_non_missing_per = training_df.notna().mean() * 100
         print("training non_missing_per")
@@ -73,9 +83,9 @@ if __name__ == "__main__":
             label="Entire data",
         )
 
-        plt.ylabel("% of Non-Missing Values")
+        plt.ylabel("% of Present Values")
         plt.xlabel("Columns")
-        plt.title("Percentage of Non-Missing Values per Column")
+        plt.title("Percentage of Present Values per Column")
         plt.legend()
         plt.show()
 
@@ -93,21 +103,20 @@ if __name__ == "__main__":
             label="Entire data",
         )
 
-        plt.ylabel("% of Non-Missing Values")
+        plt.ylabel("% of Present Values")
         plt.xlabel("Columns")
-        plt.title("Percentage of Non-Missing Values per Column")
+        plt.title("Percentage of Present Values per Column")
         plt.xticks(rotation=45)
         plt.legend()
         plt.show()
 
     elif args.task == "categorical":
-
         categoricals = ["category", "country", "state", "specialty", "currency"]
         for c in categoricals:
-            entire_counts = entire_df[c].value_counts(dropna=False)
+            entire_counts = entire_df[c].value_counts(dropna=False, normalize=True, ).round(4) * 100
             training_counts = None
             if c in training_df.columns:
-                training_counts = training_df[c].value_counts(dropna=False)
+                training_counts = training_df[c].value_counts(dropna=False, normalize=True).round(4) * 100
             # Combine the counts into a single DataFrame
             if training_counts is not None:
                 category_comparison = pd.DataFrame(
@@ -118,19 +127,18 @@ if __name__ == "__main__":
                 ).fillna(0)
             else:
                 category_comparison = entire_counts
-            print(category_comparison)
-            # category_comparison.to_csv("categorical_{}.csv".format(c))
+            category_comparison.to_csv("categorical_{}.csv".format(c))
             # Plotting
             ax = category_comparison.plot(
                 kind="barh", figsize=(10, 6), color=["red", "blue"]
             )
             plt.title(
-                "{} Counts Comparison: Entire Dataset vs Training Dataset".format(
+                "{} Percent - Comparison: Entire Dataset vs Training Dataset".format(
                     c.capitalize()
                 )
             )
             plt.ylabel("Unique Value")
-            plt.xlabel("Count")
+            plt.xlabel("Percent")
             plt.xticks(rotation=0)
             plt.legend()
             plt.grid(True)
