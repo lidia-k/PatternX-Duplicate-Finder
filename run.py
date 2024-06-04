@@ -22,12 +22,12 @@ import src.lib.deepmatcher as dm
 
 if __name__ == '__main__':
     choices = ['adventureworks', 'penumbra']
-    model_choices = ['dt', 'svm', 'rf', 'lg', 'ln', 'nb']
+    model_choices = ['dt', 'svm', 'rf', 'lg', 'ln', 'nb', 'xgb']
 
     parser = argparse.ArgumentParser(description='Run different functions based on input parameters.')
     parser.add_argument('--project', choices=choices, type=str, help='The project to run')
     parser.add_argument("--task", type=str, default=None, help="task name:{train, predict, online_train}",  metavar='')
-    parser.add_argument("--magellan_model", choices=model_choices, type=str, default='dt', help="Magellan model name",  metavar='')
+    parser.add_argument("--m_model", choices=model_choices, type=str, default=None, help="Magellan model name",  metavar='')
     parser.add_argument("--size", type=int, default=None, help="Size parameter for the task", metavar='')
     parser.add_argument("--npi", action="store_true", help="Include NPIs for training (default: exclude NPIs)")
     parser.add_argument("--model", type=str, default=None, help="model name",  metavar='')
@@ -153,28 +153,40 @@ if __name__ == '__main__':
         eb = EdgeBuilder()
         eb.handle_o_dups()
 
+    elif args.project == 'penumbra' and args.task == 'synonym':
+        dl = Neo4jDataLoader()
+        dl.create_synonym_nodes()
+
+    elif args.project == 'penumbra' and args.task == 'synoname':
+        dl = Neo4jDataLoader()
+        dl.create_synoname_nodes()
+
     elif args.project == 'penumbra' and args.task == 'm_training':
         """
         Prepare the training data, train the Magellan model, and evaluate the model.
 
         Args:
         - The --npi flag is optional. If included, the training data will include NPIs. The default is to exclude NPIs.
-        - The --magellan_model flag is optional. If included, the model will be trained with the specified model. The default is Decision Tree.
-        The model options are: Decision Tree (dt), Support Vector Machine (svm), Random Forest (rf), Logistic Regression (lg), Linear Regression (ln), and Naive Bayes (nb).
+        - The --m_model flag. Specify the model to train. The model options are: 
+            Decision Tree (dt), Support Vector Machine (svm), Random Forest (rf), 
+            Logistic Regression (lg), Linear Regression (ln), XGBoost(xgb) and Naive Bayes (nb).
 
         Output:
         - A model.pkl file will be saved.
         - A droped.csv file will be saved. 
         ('droppep.csv' contains the test data that has pairs with non-matching NPIs and isn't used for training.)
         """
+        if not args.m_model:
+            raise ValueError('Please specify the model to use for training.')
+        
         data_dir = 'src/data'
 
         print('Preparing training data with{} NPI...'.format('' if args.npi else 'out'))
-        dp = DataPreprocessor(data_dir, include_npi=args.npi)
-        ltable, rtable, data = dp.prepare_training_data(skewed_factor=2, size=args.size)
+        dp = DataPreprocessor(data_dir, include_npi=args.npi, training=True)
+        ltable, rtable, data = dp.prepare_training_data(skewed_factor=2, size=args.size, model=args.m_model)
 
-        print('Training {} with{} NPI...'.format(args.magellan_model, '' if args.npi else 'out'))
-        mt = MagellanTrainer(ltable, rtable, data, model=args.magellan_model, training=True)
+        print('Training {} with{} NPI...'.format(args.m_model, '' if args.npi else 'out'))
+        mt = MagellanTrainer(ltable, rtable, data, model=args.m_model, training=True)
         mt.train_model()
 
         print('Evaluating the model...')
@@ -192,17 +204,26 @@ if __name__ == '__main__':
 
         Run predictions on the test data and the same data with NPIs removed.
         """  
+        if not args.m_model:
+            raise ValueError('Please specify the model used for training.')
+
+        print(f'Running the test 1 for {args.m_model}')
+
         data_dir = 'src/data'
         model = joblib.load('model.pkl')
 
-        # If the saved model is trained without NPIs, the test data is prepared without NPIs.
         data = pd.read_csv('dropped.csv')
+        data.drop(columns=['label'], inplace=True)
+        
+        # If the saved model is trained without NPIs, the test data is prepared without NPIs.
         include_npi = False
         if 'rtable_npi' in data.columns:
             include_npi = True
 
         dp = DataPreprocessor(data_dir, include_npi=include_npi)
         df = dp._handle_int_cols(data)
+        if args.model != 'xgb':
+            df = dp._impute_missing_features(df)
         A, B, C = dp._load_data(df)
 
         print('Running predictions on the label 0 test data with{} NPI...'.format('' if include_npi else 'out'))
@@ -222,12 +243,21 @@ if __name__ == '__main__':
             print(f'False negatives when NPIs are masked: {(preds["predicted"] == 1).sum()} (out of {len(preds)} negative predictions)')
     
     elif args.project == 'penumbra' and args.task == 'test2':
+        if not args.m_model:
+            raise ValueError('Please specify the model used for training.')
+        
+        print(f'Running the test 2 for {args.m_model}')
+
         data_dir = 'src/data'
         model = joblib.load('model.pkl')
         # If the model is trained with NPIs, make sure include --npi flag to the run command.
         dp = DataPreprocessor(data_dir, include_npi=args.npi)
 
-        df = dp.prepare_test_data()
+        df = dp.prepare_test2_data()
+
+        if args.m_model != 'xgb':
+            df = dp._impute_missing_features(df)
+        
         A, B, C = dp._load_data(df)
 
         mt = MagellanTrainer(A, B, C, model)
@@ -239,19 +269,26 @@ if __name__ == '__main__':
         Prerequisits:
         - model.pkl file should be available from the training.
 
-        Run predictions on the test all data (exclude the data used for training)
+        Run predictions on the entire data except for the training data
         """
+        if not args.m_model:
+            raise ValueError('Please specify the model used for training.')
+        
+        print(f'Running {args.m_model} over the entire data...')
+
         data_dir = 'src/data'
         model = joblib.load('model.pkl')
         dp = DataPreprocessor(data_dir, include_npi=args.npi)
 
-        df = dp.prepare_alldata_exclude_traindata()
+        df = dp.prepare_all_data()
+        if args.m_model != 'xgb':
+            df = dp._impute_missing_features(df)
         print("df", df)
 
         A, B, C = dp._load_data(df)
 
         mt = MagellanTrainer(A, B, C, model)
-        preds = mt.predict(C)
+        preds = mt.predict(C, all=True)
 
     elif args.project == 'penumbra' and args.task == 'feature':
         model = joblib.load('model.pkl')

@@ -1,5 +1,4 @@
 import os
-import re
 import pandas as pd
 
 
@@ -17,7 +16,7 @@ def process_int_cols(df, cols):
                 pd.to_numeric(df[col], errors="coerce")
                 .fillna(0)
                 .astype(int)
-                .astype("Int64")
+                .astype(str)
             )
     return df
 
@@ -43,11 +42,7 @@ def process_biSAP_number(df):
 
 
 def get_synonyms():
-    print("------>>>>")
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    print(
-        dir_path + "/data/synonyms.txt"
-    )
     name_synonyms = {}
 
     with open(dir_path + "/data/synonyms.txt", "r", encoding="utf-8") as file:

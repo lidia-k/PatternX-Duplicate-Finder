@@ -16,7 +16,8 @@ class MagellanTrainer:
         'rf': em.RFMatcher(name='RF', random_state=0),
         'lg': em.LogRegMatcher(name='LogReg', random_state=0),
         'ln': em.LinRegMatcher(name='LinReg'),  
-        'nb': em.NBMatcher(name='NaiveBayes')
+        'nb': em.NBMatcher(name='NaiveBayes'),
+        'xgb': em.XGBoostMatcher(name='XGBoost', random_state=0)
     }
     attrs_after = None
     exclude_attrs = ['id', 'ltable_id', 'rtable_id']
@@ -105,7 +106,7 @@ class MagellanTrainer:
         )
         joblib.dump(self.model, 'model.pkl')
 
-    def predict(self, data=None):
+    def predict(self, data=None, all=False):
         if data is None:
             data = self.test_set
 
@@ -119,9 +120,9 @@ class MagellanTrainer:
         )
         # Save predictions to a CSV file
         merge_df = data.merge(predictions[["id", "predicted"]], on="id", how="left")
-        # merge_df = merge_df[['id', 'predicted', 'ltable_fullname', 'rtable_fullname',
-        #                     'ltable_email', 'rtable_email', 'ltable_sap_no', 'rtable_sap_no']]
-
+        #merge_df = merge_df[['id', 'predicted', 'ltable_fname', 'ltable_lname',
+        #                    'rtable_fname', 'rtable_lname', 'ltable_email', 'rtable_email',
+        #                    'ltable_sap_no', 'rtable_sap_no']]
         def match_first_last_name(row):
             ltable_lname = row["ltable_lname"].lower()
             rtable_lname = row["rtable_lname"].lower()

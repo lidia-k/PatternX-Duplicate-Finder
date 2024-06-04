@@ -1,3 +1,6 @@
+# Requirement:
+- Python 3.9
+
 # Duplicate Finder
 
 The repo holds duplicate finders built for different datasets. 
@@ -11,13 +14,13 @@ run: `python3 run.py --help` for more details of commands.
 
 ### How to set up Adventure Works on Postgres, using Docker.
 
-**Step 1.** Clone [this repo](https://github.com/lorint/AdventureWorks-for-Postgres) 
+**Step 1.** Clone [this repo](https://github.com/lorint/AdventureWorks-for-Postgres) in `src/AdventureWorks-for-Postgres` folder
 
 **Step 2.** Download [Adventure Works 2014](https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks-oltp-install-script.zip). It doesn't have to be the 2014 version but that’s what the above repo is using. If the database schema of other versions is different from the 2014 one, you will have to update the ruby script to convert data.
 
-**Step 3.** Rename the zip file to `adventure_works_2014_OLTP_script.zip` to be compatible with the filename used in the dockerfile.
+**Step 3.** Rename the zip file to `adventure_works_2014_OLTP_script.zip` to be compatible with the filename used in the dockerfile. and move this file to `src/AdventureWorks-for-Postgres` folder
 
-**Step 4.** Run docker-compose up at the root level of the repo. It will build a postgres container with the data restored in it.
+**Step 4.** Run docker-compose up at the root level (`src/AdventureWorks-for-Postgres`) of the repo. It will build a postgres container with the data restored in it.
 
 ### How to run the duplicate finder
 
@@ -114,8 +117,8 @@ Before running the code, create a virtual environment and use `requirements-new.
 **Prepare Training Data and Train A Model**
 
 - Input: Data stored in Neo4J.
-- Usage: `python3 run.py --project penumbra --task m_training --magellan_model dt --npi`. 
-    1) Specify which model to use by adding `--magellan_model <model_name>`. The model options are: Decision Tree (dt), Support Vector Machine (svm), Random Forest (rf), Logistic Regression (lg), Linear Regression (ln), and Naive Bayes (nb).
+- Usage: `python3 run.py --project penumbra --task m_training --m_model dt --npi`. 
+    1) Specify which model to use by adding `--m_model <model_name>`. The model options are: Decision Tree (dt), Support Vector Machine (svm), Random Forest (rf), Logistic Regression (lg), Linear Regression (ln), and Naive Bayes (nb).
     2) To train a model with the labeled data including NPIs, add `--npi` to the command. 
 - Method: 
     1) Use obvious duplicates to create matching (label 1) and non-matching (label 0) pairs of nodes. A total of 5925 pairs are labeled as 1 and 11850 pairs are labeled as 0. You can increase the number of the label 0 pairs by adjusting `skewed_factor` in the line 166 of the run file. 
