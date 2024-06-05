@@ -3,6 +3,7 @@ import joblib
 
 import pandas as pd 
 import numpy as np
+from sklearn.utils import shuffle
 
 #from DF_adventureworks.duplicate_finder import DuplicateFinder
 from src.modelling.model_evaluation import PenumbraEvaluation
@@ -192,6 +193,24 @@ if __name__ == '__main__':
 
         print('Displaying feature importance...')
         mt.retrieve_feature_importance()
+
+    elif args.project == 'penumbra' and args.task == 'debug':
+        if not args.m_model:
+            raise ValueError('Please specify the model to use for training.')
+        
+        data_dir = 'src/data'
+
+        print('Preparing training data with{} NPI...'.format('' if args.npi else 'out'))
+        dp = DataPreprocessor(data_dir, include_npi=args.npi, training=True, include_synonyms=args.synonym)
+        ltable, rtable, data = dp.prepare_training_data(skewed_factor=2, size=args.size, model=args.m_model)
+
+        mt = MagellanTrainer(ltable, rtable, data, model=args.m_model, training=True)
+        #test_set = pd.read_csv('test2_label.csv')
+        #test_set = test_set.drop(columns=['rtable_npi', 'ltable_npi'])
+        #test_set = shuffle(test_set, random_state=1).reset_index(drop=True)
+        #l, r, test_set = dp._load_data(test_set)
+        #mt.test_set = test_set
+        mt.debug_model()
 
     elif args.project == 'penumbra' and args.task == 'test1':  
         """

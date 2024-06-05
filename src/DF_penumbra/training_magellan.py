@@ -14,7 +14,7 @@ class MagellanTrainer:
     matchers = {
         'dt': em.DTMatcher(name='DecisionTree', random_state=0),
         'svm': em.SVMMatcher(name='SVM', random_state=0),
-        'rf': em.RFMatcher(name='RF', random_state=0),
+        'rf': em.RFMatcher(name='RF', random_state=0, **{'max_depth': 10, 'min_samples_leaf': 5, 'min_samples_split': 2, 'n_estimators': 50}),
         'lg': em.LogRegMatcher(name='LogReg', random_state=0),
         'ln': em.LinRegMatcher(name='LinReg'),  
         'nb': em.NBMatcher(name='NaiveBayes'),
@@ -89,7 +89,13 @@ class MagellanTrainer:
         return result['selected_matcher']
     
     def debug_model(self):
-        em.vis_debug_rf(self.models[2], self.train_set, self.test_set, 
+        self.attrs_after = 'label'
+        self.exclude_attrs.append(self.attrs_after)
+        
+        train_vectors = self._create_features(self.train_set)
+        test_vectors = self._create_features(self.test_set)
+
+        em.vis_debug_rf(self.model, train_vectors, test_vectors, 
                         exclude_attrs=self.exclude_attrs,
                         target_attr='label')
         
@@ -150,7 +156,7 @@ class MagellanTrainer:
                 random_state=0, 
                 **params
             )
-            
+
         print(f'Training {self.model_name} model with {params}')
         self.model.fit(
             table=f_vectors, 

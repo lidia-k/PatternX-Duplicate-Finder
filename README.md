@@ -97,14 +97,14 @@ docker run \
     -d neo4j:latest
 ```
 
-### Traditional ML Approach 
+### Old-school ML Approach 
 
 Before running the code, create a virtual environment and use `requirements-new.txt` to install requirements. 
 (`requirements.txt` might cause some conflicts. )
 
 **Preprocess and Load Data (Skip This Step)**
 
-- Input: Save each sheet from the original Excel files as separate CSV files in /src/data..
+- Input: Save each sheet from the original Excel files as separate CSV files in /src/data.
 - Usage: `python3 run.py --project penumbra --task neo4j`
 - Method:
     1) Create an edge between two nodes if their properties exactly match. The edge types created are: npi, fullname_email, fullname_sap_no, and fullname_qb_id, identifying "obvious duplicates."
@@ -120,6 +120,7 @@ Before running the code, create a virtual environment and use `requirements-new.
 - Method: 
     1) Use obvious duplicates to create matching (label 1) and non-matching (label 0) pairs of nodes. A total of 5925 pairs are labeled as 1 and 11850 pairs are labeled as 0. You can increase the number of the label 0 pairs by adjusting `skewed_factor` in the line 166 of the run file. 
     2) Train and evaluate a model using the py_entitymatching library.
+    3) When training rf and xgb, hypherparameters are optimized by using GridSearch. The parameter range can be adjusted in the code.  
 - Output: Evaluation results are printed.
 
 **Test the Model**
@@ -139,6 +140,17 @@ Test 2:
     1) Pairs that have the same emails or sap numbers but don’t have any relationship. We used this criteria because there might be fuzzy duplicates returned from this. 
     2) Pairs that don’t have any relationship.  
 - Output: `predictions.csv` including the `predicted` column. You can manually check if they are predicted right. 
+
+Test 3:
+- Input: `model.pkl`, `feature_table.pkl` and Neo4J data.
+- Usage: `python3 run.py --project penumbra --task test3 --m_model rf`
+
+**Debug the Random Forest Model**
+
+- Input:
+- Usage: `python3 run.py --project penumbra --task debug m_model rf`
+- Method: py_entitymatching library provides GUI to debug dt and rf models. 
+- Output: The debugging GUI pops up and allows to investigate false positive and false negative cases from the training and validation dataset.
 
 
 ### NPI Validation & RAG Approach 

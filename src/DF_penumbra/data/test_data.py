@@ -1,5 +1,5 @@
 # false negative from test2 regardless of the model 
-emails = ['Manuel826@yahoo.com', 'muckpatrick@gmail.com']
+emails = ['Manuel826@yahoo.com', 'muckpatrick@gmail.com', 'donqdeedee@aol.com']
 
 # false positive from rf-predict-all
 f_pos = [

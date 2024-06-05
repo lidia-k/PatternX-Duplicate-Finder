@@ -229,19 +229,42 @@ class DataPreprocessor:
         df.to_csv(filename, index=False)
     
     def _add_feedback_pairs(self):
+        final_pairs = []
         for email in test_data.emails:
             q = f'''
-            MATCH (a), (b)
-            WHERE a.email = '{email}' AND b.email = '{email}' AND id(a) < id(b)
-            MERGE (a)-[:r1_email]->(b)
+            MATCH (n)
+            WHERE n.email = '{email}'
+            RETURN n
             '''
+            result = self.graph.cypher_transaction(q)
+
+            df = pd.DataFrame([dict(record[0]) for record in result])
+            drop_cols = ['uid']
+            if 'npi' in df.columns: 
+                drop_cols.append('npi')
+            df.drop(columns=drop_cols, inplace=True)
+            
+            pairs = [(df.iloc[i], df.iloc[j]) for i, j in combinations(range(len(df)), 2)]
+            final_pairs.extend(pairs)
+        
+        pair_data = []
+        for left, right in final_pairs:
+            left_dict = {'ltable_' + col: val for col, val in left.items()}
+            right_dict = {'rtable_' + col: val for col, val in right.items()}
+            pair_data.append({**left_dict, **right_dict})
+
+        pair_df = pd.DataFrame(pair_data)
+        self._handle_int_cols(pair_df)
+        pair_df['label'] = 1
+        return pair_df
 
     def prepare_training_data(self, skewed_factor, size, model=None):
         """
         Label the pairs as matching or non-matching and prepare the training data. 
         """
         matching_df = self._build_matching_pairs(size)
-        #self._add_feedback_pairs()
+        #feedback_df = self._add_feedback_pairs()
+        #matching_df = pd.concat([matching_df, feedback_df], sort=False)
 
         limit = len(matching_df) * skewed_factor
         non_matching_df, dropped_df = self._build_non_matching_pairs(limit=limit)
