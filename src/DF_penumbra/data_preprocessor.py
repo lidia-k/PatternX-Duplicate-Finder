@@ -355,7 +355,7 @@ class DataPreprocessor:
         return df 
 
     def prepare_all_data(self):
-        # exclude the data used for training 
+        # exclude the data used for training
         ltable, rtable, data = self.prepare_training_data(skewed_factor=2, size=None)
         exclude_uids = ltable["uid"].unique().tolist()
         exclude_uids.extend(rtable["uid"].unique().tolist())

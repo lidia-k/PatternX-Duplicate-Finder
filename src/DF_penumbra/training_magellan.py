@@ -33,7 +33,7 @@ class MagellanTrainer:
         self.model_name = model
         self._load_model(model)
         self.feature_table = self._load_feature_table(training)
-    
+
     def _load_model(self, model):
         if type(model) == str:
             self.model = self.matchers[model]
@@ -48,7 +48,7 @@ class MagellanTrainer:
             with open('feature_table.pkl', 'wb') as f:
                 dill.dump(feature_table,  f)
             return feature_table
-        
+
         try: 
             with open('feature_table.pkl', 'rb') as f:
                 feature_table = dill.load(f)
@@ -62,7 +62,7 @@ class MagellanTrainer:
         train_set = split_data['train']
         test_set = split_data['test']
         return train_set, test_set
-    
+
     def _create_features(self, dataset):
         f_vectors = em.extract_feature_vecs(
             dataset, feature_table=self.feature_table, attrs_after=self.attrs_after, show_progress=True
@@ -73,7 +73,7 @@ class MagellanTrainer:
                 exclude_attrs=self.exclude_attrs, 
                 strategy='mean'
             )
-        
+
         return f_vectors
 
     def _select_best_model(self, f_vectors):
@@ -84,10 +84,10 @@ class MagellanTrainer:
             k=5, target_attr=self.attrs_after, 
             metric_to_select_matcher='f1', 
             random_state=0)
-        
+
         print(result['cv_stats'])
         return result['selected_matcher']
-    
+
     def debug_model(self):
         self.attrs_after = 'label'
         self.exclude_attrs.append(self.attrs_after)
@@ -171,10 +171,13 @@ class MagellanTrainer:
 
         f_vectors = self._create_features(data)
         predictions = self.model.predict(
-            table=f_vectors, 
-            exclude_attrs=self.exclude_attrs, 
-            append=True, target_attr='predicted', inplace=False,
-            return_probs=True, probs_attr='prob'
+            table=f_vectors,
+            exclude_attrs=self.exclude_attrs,
+            append=True,
+            target_attr="predicted",
+            inplace=False,
+            return_probs=True, 
+            probs_attr='prob'
         )
 
         # Save predictions to a CSV file
@@ -187,15 +190,15 @@ class MagellanTrainer:
             filename = filename + '_all'
         merge_df.to_csv(f'{filename}.csv', index=False)
         return predictions
-     
+
     def evaluate(self, predictions):
         eval_result = em.eval_matches(predictions, 'label', 'predicted')
         em.print_eval_summary(eval_result)
-    
+
     def retrieve_feature_importance(self):
         importances = self.model.clf.feature_importances_
         feature_names = self.feature_table['feature_name'].values
-        
+
         plt.figure(figsize=(10, 15))
         indices = np.argsort(importances)[::-1][:30]
 
@@ -206,4 +209,3 @@ class MagellanTrainer:
 
         plt.subplots_adjust(left=0.3)
         plt.show()
-        
