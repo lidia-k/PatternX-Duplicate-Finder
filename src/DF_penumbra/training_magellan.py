@@ -173,10 +173,12 @@ class MagellanTrainer:
         predictions = self.model.predict(
             table=f_vectors, 
             exclude_attrs=self.exclude_attrs, 
-            append=True, target_attr='predicted', inplace=False
+            append=True, target_attr='predicted', inplace=False,
+            return_probs=True, probs_attr='prob'
         )
+
         # Save predictions to a CSV file
-        merge_df = data.merge(predictions[['id', 'predicted']], on='id', how='left')
+        merge_df = data.merge(predictions[['id', 'predicted', 'prob']], on='id', how='left')
         #merge_df = merge_df[['id', 'predicted', 'ltable_fname', 'ltable_lname',
         #                    'rtable_fname', 'rtable_lname', 'ltable_email', 'rtable_email',
         #                    'ltable_sap_no', 'rtable_sap_no']]
