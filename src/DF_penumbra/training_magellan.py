@@ -177,7 +177,7 @@ class MagellanTrainer:
             target_attr="predicted",
             inplace=False,
             return_probs=True, 
-             probs_attr='prob'
+            probs_attr='prob'
         )
 
         # Save predictions to a CSV file
@@ -185,32 +185,10 @@ class MagellanTrainer:
         #merge_df = merge_df[['id', 'predicted', 'ltable_fname', 'ltable_lname',
         #                    'rtable_fname', 'rtable_lname', 'ltable_email', 'rtable_email',
         #                    'ltable_sap_no', 'rtable_sap_no']]
-        def match_first_last_name(row):
-            ltable_lname = row["ltable_lname"].lower()
-            rtable_lname = row["rtable_lname"].lower()
-            ltable_fname = row["ltable_fname"].lower()
-            rtable_fname = row["rtable_fname"].lower()
-
-            if ltable_lname == rtable_lname:
-                # fname is same
-                if ltable_fname == rtable_fname:
-                    return 1
-
-                ltable_fname_result = [x.strip() for x in ltable_fname.split(",")]
-                rtable_fname_result = [x.strip() for x in rtable_fname.split(",")]
-                if ltable_fname_result:
-                    if rtable_fname in ltable_fname_result:
-                        return 1
-                if rtable_fname_result:
-                    if ltable_fname in rtable_fname_result:
-                        return 1
-
-            return 0
-
-        merge_df["match_f_l_name"] = merge_df.apply(match_first_last_name, axis=1)
-        merge_df.to_csv(
-            f"predictions_{self.model.clf.__class__.__name__}.csv", index=False
-        )
+        filename = f'predictions_{self.model.clf.__class__.__name__}'
+        if all:
+            filename = filename + '_all'
+        merge_df.to_csv(f'{filename}.csv', index=False)
         return predictions
 
     def evaluate(self, predictions):
