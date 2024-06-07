@@ -1,3 +1,4 @@
+import json
 import os
 import pandas as pd
 
@@ -91,3 +92,8 @@ def process_first_name_synonyms(df):
     df["match_f_l_name"] = df.apply(match_first_last_name, axis=1)
     df.to_csv("predictions_RandomForestClassifier_all_result.csv", index=False)
 
+
+def get_us_states():
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    with open(dir_path + "/data/us_states.json") as f_in:
+        return json.load(f_in)

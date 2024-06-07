@@ -117,3 +117,4 @@ PyQt5==5.15.10
 langchain==0.1.15
 neo4j-driver==5.19.0
 Levenshtein==0.25.1
+ydata-profiling==4.8.3

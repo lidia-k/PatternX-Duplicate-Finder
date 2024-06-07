@@ -227,7 +227,7 @@ class DataPreprocessor:
     def _prepare_test_data(self, df, cols, filename):
         df = df[cols]
         df.to_csv(filename, index=False)
-    
+
     def _add_feedback_pairs(self):
         final_pairs = []
         for email in test_data.emails:
@@ -258,7 +258,19 @@ class DataPreprocessor:
         pair_df['label'] = 1
         return pair_df
 
-    def prepare_training_data(self, skewed_factor, size, model=None):
+    def get_entire_data(self):
+        # fetch all data from Neo4J (Provider OR n:Speaker)
+        q = '''
+        MATCH (n)
+        WHERE (n:Provider OR n:Speaker)
+        RETURN n
+        '''
+        result = self.graph.cypher_transaction(q)
+
+        df = pd.DataFrame([dict(record[0]) for record in result])
+        return df
+
+    def get_training_data(self, skewed_factor, size=None):
         """
         Label the pairs as matching or non-matching and prepare the training data. 
         """
@@ -276,6 +288,13 @@ class DataPreprocessor:
         print(f'The number of matching pairs:', len(matching_df))
 
         combined_df = pd.concat([matching_df, non_matching_df], sort=False)
+        return combined_df, df_46, dropped_df
+        
+    def prepare_training_data(self, skewed_factor, size, model=None):
+        """
+        Label the pairs as matching or non-matching and prepare the training data. 
+        """
+        combined_df, df_46, dropped_df = self.get_training_data(skewed_factor, size)
         combined_df = self._drop_high_missing_features(combined_df)
 
         # Prepare and save the test data
