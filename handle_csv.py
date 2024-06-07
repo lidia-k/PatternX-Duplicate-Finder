@@ -4,6 +4,7 @@ import argparse
 import pandas as pd
 
 from src.DF_penumbra.edge_builder import EdgeBuilder
+from src.DF_penumbra.data_loader import Neo4jDataLoader
 from src.DF_penumbra.utils import process_first_name_synonyms
 
 
@@ -54,3 +55,8 @@ if __name__ == "__main__":
         print(df)
         eb = EdgeBuilder()
         eb.set_relationship(df, "r2_rf")
+
+    elif args.task == "export-matched":
+        data_dir = "src/data"
+        dl = Neo4jDataLoader(data_dir)
+        dl.export_results(filename="master.csv")
