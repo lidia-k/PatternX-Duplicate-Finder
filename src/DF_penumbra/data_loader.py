@@ -22,15 +22,15 @@ class Neo4jDataLoader:
             config.NEO4J_PASSWORD 
         )
         self.data_dir = data_dir
-    
+
     def _process_names(self, file_name):
         file_type = 'sp' if 'speaker' in file_name else 'po'
         renamed_cols = constants.SP_COLS if file_type == 'sp' else constants.PO_COLS
-        
+
         name_str = file_name.split('-')[3 if file_type == 'sp' else 2].split('.')[0]
         file_name = f'{self.data_dir}/{file_type}_{name_str}.csv'
         node_type = f'{file_type}_{name_str[:2]}'
-        
+
         return renamed_cols, name_str, file_name, node_type
 
     def _prepare_csv_file(self, csv_file):
@@ -41,9 +41,9 @@ class Neo4jDataLoader:
         rename, name_str, file_name, node_type = self._process_names(csv_file)
         df = pd.read_csv(csv_file)        
 
-        # Add uid column based on the node type        
+        # Add uid column based on the node type
         df['uid'] = [f'{node_type}_{i+2}' for i in range(len(df))]
-        
+
         """
         # Drop unnecessary columns
         drop_cols = [
@@ -73,7 +73,7 @@ class Neo4jDataLoader:
         if 'speaker' in csv_file:
             df[['fname', 'lname']] = df['fullname'].str.split(' ', n=1, expand=True)
 
-        #if 'speaker' in csv_file:
+        # if 'speaker' in csv_file:
         #    df[['fname', 'lname']] = df['fullname'].str.split(n=1, expand=True)
 
         # Split a row with two sap numbers into two rows
@@ -242,3 +242,18 @@ class Neo4jDataLoader:
                 add += 1
         print("Added {} Synoname nodes.".format(add))
         print("Note - use this cypher command to delete all Synoname nodes: MATCH (n:Synoname) DELETE n")
+
+    def set_relationship(self, df: pd.DataFrame, relationship: str):
+        if not ("ltable_uid" in df.columns) and not ("rtable_uid" in df.columns):
+            raise "DataFrame is missing ltable_uid and rtable_uid columns"
+
+        for index, row in df.iterrows():
+            # print(index, row)
+            q = f"""
+            MATCH (l), (r)
+            WHERE l.uid = "{row["ltable_uid"]}" AND r.uid = "{row["rtable_uid"]}"
+            CREATE (l)-[:{relationship}]->(r)
+            """
+            self.graph.cypher_transaction(q)
+
+        print("DONE - created relationship '{}' for {} pairs".format(relationship, len(df)))
