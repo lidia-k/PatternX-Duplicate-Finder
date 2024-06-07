@@ -204,8 +204,17 @@ class MagellanTrainer:
 
         plt.title(f'Feature Importance in {self.model.clf.__class__.__name__}')
         plt.barh(range(len(indices)), importances[indices], color='b', align='center')
-        plt.yticks(range(len(indices)), [feature_names[i] for i in indices])
         plt.xlabel('Relative Importance')
+
+        ax = plt.gca()
+        ax.set_yticks(range(len(indices)))
+        ax.set_yticklabels([feature_names[i] for i in indices])
+
+        for label in ax.get_yticklabels():
+            if 'name' in label.get_text():
+                label.set_color('red')
+            else: 
+                label.set_color('black')
 
         plt.subplots_adjust(left=0.3)
         plt.show()
