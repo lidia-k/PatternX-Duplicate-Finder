@@ -242,18 +242,3 @@ class Neo4jDataLoader:
                 add += 1
         print("Added {} Synoname nodes.".format(add))
         print("Note - use this cypher command to delete all Synoname nodes: MATCH (n:Synoname) DELETE n")
-
-    def set_relationship(self, df: pd.DataFrame, relationship: str):
-        if not ("ltable_uid" in df.columns) and not ("rtable_uid" in df.columns):
-            raise "DataFrame is missing ltable_uid and rtable_uid columns"
-
-        for index, row in df.iterrows():
-            # print(index, row)
-            q = f"""
-            MATCH (l), (r)
-            WHERE l.uid = "{row["ltable_uid"]}" AND r.uid = "{row["rtable_uid"]}"
-            CREATE (l)-[:{relationship}]->(r)
-            """
-            self.graph.cypher_transaction(q)
-
-        print("DONE - created relationship '{}' for {} pairs".format(relationship, len(df)))

@@ -3,7 +3,7 @@
 import argparse
 import pandas as pd
 
-from src.DF_penumbra.data_loader import Neo4jDataLoader
+from src.DF_penumbra.edge_builder import EdgeBuilder
 from src.DF_penumbra.utils import process_first_name_synonyms
 
 
@@ -20,10 +20,6 @@ if __name__ == "__main__":
         process_first_name_synonyms(df)
 
     elif args.task == "create-rf-edges":
-        data_dir = "src/data"
-        print("Loading data to Neo4j")
-        dl = Neo4jDataLoader(data_dir)
-
         df = pd.read_csv("predictions_RandomForestClassifier_all.csv")
         df = df[df["predicted"] == 1]
         print(df)
@@ -56,4 +52,5 @@ if __name__ == "__main__":
         print("Ignore: {}".format(len(df[df["ignore"] == 1])))
         df = df[df["ignore"] == 0]
         print(df)
-        dl.set_relationship(df, "r2_rf")
+        eb = EdgeBuilder()
+        eb.set_relationship(df, "r2_rf")
