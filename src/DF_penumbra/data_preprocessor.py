@@ -8,12 +8,13 @@ from sklearn.utils import shuffle
 
 from src.dao.NEO4J_Graph import Graph
 from src.DF_penumbra import constants
+from src.DF_penumbra.data import test_data
 from src.DF_penumbra.utils import process_int_cols
 from src.utils import auto_config as config
 
 
 class DataPreprocessor:
-    def __init__(self, data_dir, include_npi, training=False):
+    def __init__(self, data_dir, include_npi, training=False, include_synonyms=False):
         self.graph = Graph(
             config.NEO4J_URL,
             config.NEO4J_USER,
@@ -21,6 +22,7 @@ class DataPreprocessor:
         )
         self.data_dir = data_dir
         self.include_npi = include_npi
+        self.include_synonyms = include_synonyms
         self.training = training
     
     def detect_high_missing_props(self, missing_percentage_threshold=59.2):
@@ -56,7 +58,7 @@ class DataPreprocessor:
             all_props.update(dict(node_a).keys())
             all_props.update(dict(node_b).keys())
         
-        all_props.remove('fullname')
+        #all_props.remove('fullname')
         if self.training:
             all_props.remove('uid')
         if not self.include_npi:
@@ -82,15 +84,22 @@ class DataPreprocessor:
         """
         For nodes that have different npis, create a non-matching pair.
         """
-        q = f'''
+        base_q = f'''
         MATCH (n)
-        WHERE (n:Provider OR n:Speaker) AND n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())
+        WHERE n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())
+        '''
+        syn_c = ''
+        if not self.include_synonyms:
+            syn_c = 'AND NOT n:Synonym '
+        q = f'''
+        {base_q} {syn_c}
         RETURN n
         '''
         result = self.graph.cypher_transaction(q)
 
         df = pd.DataFrame([dict(record[0]) for record in result])
-        dropped_cols = ['fullname']
+        #dropped_cols = ['fullname']
+        dropped_cols = []
         if self.training:
             dropped_cols.append('uid')
         if not self.include_npi:
@@ -128,10 +137,19 @@ class DataPreprocessor:
             A DataFrame containing the distinct pairs of nodes that match the criteria, with a column labeled '1'.
         """
         edge_types = ['r1_' + et for et in constants.EDGE_TYPES]
-        q = f'''
+        base_q = f'''
         UNWIND {edge_types} AS type
         MATCH (a)-[r]->(b)
-        WHERE type(r) = type AND a.uid <> b.uid AND (a:Provider OR a:Speaker) AND (b:Provider OR b:Speaker)
+        WHERE type(r) = type AND id(a) < id(b)
+        '''
+        syn_c = ''
+        if not self.include_synonyms:
+            syn_c = '''
+                AND (a:Provider OR a:Speaker)
+                AND (b:Provider OR b:Speaker)
+            '''
+        q = f'''
+        {base_q} {syn_c}
         RETURN DISTINCT a, b
         '''
         if size is not None:
@@ -184,11 +202,6 @@ class DataPreprocessor:
             C = self._handle_int_cols(C)
             
         return A, B, C
-
-    def _impute_missing_features(self, df):
-        for col in df.columns:
-            df[col] = df[col].fillna('UNKNOWN').astype(object)
-        return df
     
     def _drop_high_missing_features(self, df, threshold=78):
         missing_per = df.isna().sum()/df.shape[0]*100
@@ -215,6 +228,36 @@ class DataPreprocessor:
         df = df[cols]
         df.to_csv(filename, index=False)
 
+    def _add_feedback_pairs(self):
+        final_pairs = []
+        for email in test_data.emails:
+            q = f'''
+            MATCH (n)
+            WHERE n.email = '{email}'
+            RETURN n
+            '''
+            result = self.graph.cypher_transaction(q)
+
+            df = pd.DataFrame([dict(record[0]) for record in result])
+            drop_cols = ['uid']
+            if 'npi' in df.columns: 
+                drop_cols.append('npi')
+            df.drop(columns=drop_cols, inplace=True)
+            
+            pairs = [(df.iloc[i], df.iloc[j]) for i, j in combinations(range(len(df)), 2)]
+            final_pairs.extend(pairs)
+        
+        pair_data = []
+        for left, right in final_pairs:
+            left_dict = {'ltable_' + col: val for col, val in left.items()}
+            right_dict = {'rtable_' + col: val for col, val in right.items()}
+            pair_data.append({**left_dict, **right_dict})
+
+        pair_df = pd.DataFrame(pair_data)
+        self._handle_int_cols(pair_df)
+        pair_df['label'] = 1
+        return pair_df
+
     def get_entire_data(self):
         # fetch all data from Neo4J (Provider OR n:Speaker)
         q = '''
@@ -232,6 +275,8 @@ class DataPreprocessor:
         Label the pairs as matching or non-matching and prepare the training data. 
         """
         matching_df = self._build_matching_pairs(size)
+        #feedback_df = self._add_feedback_pairs()
+        #matching_df = pd.concat([matching_df, feedback_df], sort=False)
 
         limit = len(matching_df) * skewed_factor
         non_matching_df, dropped_df = self._build_non_matching_pairs(limit=limit)
@@ -251,8 +296,6 @@ class DataPreprocessor:
         """
         combined_df, df_46, dropped_df = self.get_training_data(skewed_factor, size)
         combined_df = self._drop_high_missing_features(combined_df)
-        if model != 'xgb':
-            combined_df = self._impute_missing_features(combined_df)
 
         # Prepare and save the test data
         test_dfs = {'46.csv': df_46, 'dropped.csv': dropped_df}
@@ -273,16 +316,15 @@ class DataPreprocessor:
         for prop in props:
             matching_q = f'''
             MATCH (a), (b)
-            WHERE a.{prop} = b.{prop} AND a <> b AND NOT (a)-[]-(b)
+            WHERE a.{prop} = b.{prop} AND id(a) < id(b) AND NOT (a)-[]-(b)
             RETURN DISTINCT a, b
-            LIMIT 20
             '''
             matching_result = self.graph.cypher_transaction(matching_q)
             result.extend(matching_result)
-        
+
         non_matching_q = '''
         MATCH (a), (b)
-        WHERE a.email <> b.email AND a.sap_no = b.sap_no AND a <> b AND NOT (a)-[]-(b)
+        WHERE a.email <> b.email AND a.sap_no <> b.sap_no AND id(a) < id(b) AND NOT (a)-[]-(b)
         RETURN DISTINCT a, b
         LIMIT 14
         '''
@@ -302,8 +344,37 @@ class DataPreprocessor:
         combined_df.to_csv(csv_test2, index=False)
         return combined_df
 
+    def prepare_sb_test_data(self):
+        cases = test_data.weak_cases
+        uids = {uid for id_set in cases for uid in id_set}
+        uids = "', '".join(uids)
+        q = f'''
+        MATCH (n)
+        WHERE n.uid IN ['{uids}']
+        RETURN n
+        '''
+        result = self.graph.cypher_transaction(q)
+        node_dict = {record[0]['uid']: record[0] for record in result}
+
+        pair_data = []
+        for id_set in cases:
+            pairs = list(combinations(id_set, 2))
+            for pair in pairs:
+                node_a = node_dict[pair[0]]
+                node_b = node_dict[pair[1]]
+                left_dict = {'ltable_' + col: val for col, val in node_a.items()}
+                right_dict = {'rtable_' + col: val for col, val in node_b.items()}
+                pair_data.append({**left_dict, **right_dict})
+        
+        df = pd.DataFrame(pair_data)
+        self._handle_int_cols(df)
+
+        df_46 = pd.read_csv('46.csv').drop(columns=['label'])
+        df = df[df_46.columns]
+        return df 
+
     def prepare_all_data(self):
-        # exclude the data used for training 
+        # exclude the data used for training
         ltable, rtable, data = self.prepare_training_data(skewed_factor=2, size=None)
         exclude_uids = ltable["uid"].unique().tolist()
         exclude_uids.extend(rtable["uid"].unique().tolist())

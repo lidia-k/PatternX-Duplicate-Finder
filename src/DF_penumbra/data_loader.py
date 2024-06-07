@@ -99,7 +99,7 @@ class Neo4jDataLoader:
 
         df.to_csv(f"./{file_name}", index=False)
         print(f"Updated file: {file_name}")
-        return file_name, df
+        return file_name
 
     def _load_data_from_cypher(self, file_path):
         if "sp" in file_path:
@@ -156,9 +156,8 @@ class Neo4jDataLoader:
 
         # Update csv files and load data to Neo4j
         data_bundles = glob.glob(f"{self.data_dir}/*.csv")
-        df_dict = {}
         for f in data_bundles:
-            file_name, df = self._prepare_csv_file(f)
+            file_name = self._prepare_csv_file(f)
             self._load_data_from_cypher(file_name)
 
     def create_synonym_nodes(self):
