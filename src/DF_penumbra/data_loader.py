@@ -325,7 +325,7 @@ class Neo4jDataLoader:
         def set_group(value):
             if ".1" in str(value):  # no duplicate
                 return None
-            return "x" if int(value) % 2 == 0 else "n"
+            return "x" if int(value) % 2 == 0 else "o"
 
         df["group"] = df["group_index"].apply(set_group)
 
