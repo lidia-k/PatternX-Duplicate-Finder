@@ -40,8 +40,8 @@ if __name__ == "__main__":
         # removes duplicate rows based on all columns.
         training_df = training_df.drop_duplicates()
         drop_org_columns = ["og_state", "og_country", "og_specialty"]
-        training_df.drop(columns=drop_org_columns, inplace=True)
-        
+        training_df.drop(columns=drop_org_columns, inplace=True, errors="ignore")
+
         print("Training data:")
         print(training_df)
         # -- Entire data --
@@ -90,33 +90,49 @@ if __name__ == "__main__":
         plt.show()
 
     elif args.task == "missing-alldata":
-        all_non_missing_per = entire_df.notna().mean() * 100
+        def set_address(row):
+            return row["addr1"] if row["addr1"] else row["addr2"]
+        entire_df["address"] = entire_df.apply(set_address, axis=1)
+        entire_df.drop(columns=["state2", "lic_state", "addr1", "addr2"], inplace=True)
+        all_non_missing_per = entire_df.notna().mean().round(4) * 100
         print("All data non_missing_per")
         print(all_non_missing_per.to_string())
 
         # Plotting
-        plt.figure(figsize=(10, 6))
-        plt.scatter(
+        fig, ax = plt.subplots()
+        bars = ax.bar(
             list(all_non_missing_per.keys()),
             list(all_non_missing_per.values),
-            marker="o",
             label="Entire data",
         )
 
         plt.ylabel("% of Present Values")
         plt.xlabel("Columns")
-        plt.title("Percentage of Present Values per Column")
+        plt.title("Percentage of present values")
         plt.xticks(rotation=45)
         plt.legend()
+        for container in ax.containers:
+            ax.bar_label(container)
         plt.show()
 
     elif args.task == "categorical":
-        categoricals = ["category", "country", "state", "specialty", "currency"]
+        categoricals = ["category", "country", "specialty"]
         for c in categoricals:
-            entire_counts = entire_df[c].value_counts(dropna=False, normalize=True, ).round(4) * 100
+            entire_counts = (
+                entire_df[c]
+                .value_counts(
+                    dropna=False,
+                    normalize=True,
+                )
+                .round(4)
+                * 100
+            )
             training_counts = None
             if c in training_df.columns:
-                training_counts = training_df[c].value_counts(dropna=False, normalize=True).round(4) * 100
+                training_counts = (
+                    training_df[c].value_counts(dropna=False, normalize=True).round(4)
+                    * 100
+                )
             # Combine the counts into a single DataFrame
             if training_counts is not None:
                 category_comparison = pd.DataFrame(
@@ -133,7 +149,7 @@ if __name__ == "__main__":
                 kind="barh", figsize=(10, 6), color=["red", "blue"]
             )
             plt.title(
-                "{} Percent - Comparison: Entire Dataset vs Training Dataset".format(
+                "Comparison of Data Distribution for {}: Entire Data vs. Training Data".format(
                     c.capitalize()
                 )
             )
