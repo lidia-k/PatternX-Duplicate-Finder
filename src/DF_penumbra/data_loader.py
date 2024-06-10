@@ -322,12 +322,26 @@ class Neo4jDataLoader:
         df["group_index"] = df.apply(set_group_index, axis=1)
         df.sort_values(by=["group_index"], inplace=True)
 
+        # Add empty row after each group
+        df_groups = df.groupby(df['group_index']).last()
+        df_groups = df_groups[df_groups.index % 1 == 0][['uid']]
+        new_rows = pd.DataFrame(
+            "-",
+            index=df_groups['uid'] + '_cp',
+            columns=df.columns
+        )
+        new_rows["group_index"] = df_groups.index + 0.05
+        df = pd.concat([df, new_rows])
+        df.sort_values(by=["group_index"], inplace=True)
+
+        # set x/o
         def set_group(value):
-            if ".1" in str(value):  # no duplicate
+            if value % 1 != 0:  # no duplicate
                 return None
             return "x" if int(value) % 2 == 0 else "o"
 
         df["group"] = df["group_index"].apply(set_group)
 
+        # export csv
         df = df[["group", "round"] + columns]
-        df.to_csv(filename, index=False)
+        df.to_csv(filename)
