@@ -37,6 +37,7 @@ if __name__ == "__main__":
             ("po_no_413", "po_no_197"),
             ("po_no_114", "po_no_133"),
             ("po_no_114", "po_no_129"),
+            ("po_no_560", "po_co_442")
         ]
 
         def ignore(row):

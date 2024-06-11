@@ -270,6 +270,7 @@ class Neo4jDataLoader:
             "email",
             "qb_id",
             "sap_no",
+            "npi",
             "country",
             "currency",
             "category",
