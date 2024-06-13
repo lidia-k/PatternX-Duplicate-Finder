@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import py_entitymatching as em
-from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import GridSearchCV
 
 class MagellanTrainer:
@@ -102,7 +101,7 @@ class MagellanTrainer:
     def _perform_grid_search(self, train_vectors):
         if self.model_name == 'rf':
             param_grid = {
-                'max_depth': [10, 20, 30],
+                'max_depth': [1, 5, 10, 15],
                 'min_samples_split': [2, 5, 10],
                 'min_samples_leaf': [5, 10],
                 'n_estimators': [50, 100],
@@ -157,7 +156,7 @@ class MagellanTrainer:
                 **params
             )
 
-        print(f'Training {self.model_name} model with {params}')
+        print(f'Training {self.model_name} model with {self.model.clf.get_params()}')
         self.model.fit(
             table=f_vectors, 
             exclude_attrs=self.exclude_attrs, 
