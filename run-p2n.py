@@ -82,7 +82,7 @@ def add_dummy_label( infile=None, outfile=None, label=-1 ):
 # input :  path to datafile to be converted into a pytorch DataLoader
 def preForward( path ):
     model, optimizer, scheduler, epoch = didi.load_model( args, 10 )
-    inDaet  = dida.DittoDataset( path=path, lm=args.lm, size=args.size  )      #sn daet.pairs[1] is plain text
+    inDaet  = dida.DittoDataset( path=path, lm=args.lm, clipdaet=args.clipdaet  )      #sn daet.pairs[1] is plain text
     dloader = torch.utils.data.DataLoader( dataset=inDaet , batch_size=args.batch_size  #sn was batch_size*16
     ,         shuffle=False, num_workers=0, collate_fn=inDaet.pad ) 
     return  model, dloader
@@ -206,9 +206,9 @@ elif args.project == 'penumbra' and args.task == 'train-ditto':    #sn  added el
     runtag    = '%s_lm=%s_da=%s_dok=%s_su=%s_clipdaet=%s_id=%d' % ( args.task, args.lm, 
         args.da, args.dok, args.summarize, str(args.clipdaet), args.run_id )
     runtag    = runtag.replace('/', '_')
-    traindaet = dida.DittoDataset( trainpath, lm=args.lm, max_len=args.max_len, size=args.size, da=args.da )
-    validdaet = dida.DittoDataset( validpath, lm=args.lm, size=args.size )   #sn validdaet.pairs[1] is plain text
-    testdaet  = dida.DittoDataset( testpath , lm=args.lm, size=args.size )
+    traindaet = dida.DittoDataset( trainpath, lm=args.lm, max_len=args.max_len, clipdaet=args.clipdaet, da=args.da )
+    validdaet = dida.DittoDataset( validpath, lm=args.lm, clipdaet=args.clipdaet )   #sn validdaet.pairs[1] is plain text
+    testdaet  = dida.DittoDataset( testpath , lm=args.lm, clipdaet=args.clipdaet )
     start_time = time.strftime("%Y%m%d-%H%M%S")
     print( "train start = "  + start_time )
     didi.train( traindaet, validdaet, testdaet, runtag, args )
