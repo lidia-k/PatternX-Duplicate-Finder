@@ -75,3 +75,27 @@ if __name__ == "__main__":
 
         mt = MagellanTrainer(A, B, C, model)
         preds = mt.predict(C, all=True)
+
+    elif args.task == "predict-unlabeled":
+        """
+        Prerequisits:
+        - model.pkl file should be available from the training.
+
+        Run predictions on the unlabeled.csv
+        """
+        if not args.m_model:
+            raise ValueError("Please specify the model used for training.")
+
+        print(f"Running {args.m_model} over the entire data...")
+
+        data_dir = "itunes-amazon"
+        model = joblib.load("model.pkl")
+        dp = DataPreprocessor(data_dir)
+
+        df = dp.prepare_unlabeled_data()
+        print("df", df)
+
+        A, B, C = dp._load_data(df)
+
+        mt = MagellanTrainer(A, B, C, model)
+        preds = mt.predict(C, all=False)

@@ -173,3 +173,10 @@ class DataPreprocessor:
         print("Number of tuples pairs in K3: " + str(len(K3)))
         K3.rename(columns={"_id": "id"}, inplace=True)
         return K3
+
+    def prepare_unlabeled_data(self):
+        path = os.path.join(self.data_dir, "unlabeled.csv")
+        data = pd.read_csv(path)
+        data.columns = [col.replace("left_", "ltable_") for col in data.columns]
+        data.columns = [col.replace("right_", "rtable_") for col in data.columns]
+        return data
