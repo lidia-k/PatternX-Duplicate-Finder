@@ -86,8 +86,8 @@ class DataPreprocessor:
         ldaf  = ldaf.rename( columns={'uid':'luid'} ) 
         rdaf  = rdaf.rename( columns={'uid':'ruid'} )
         # drop columns
-        ldaf  = ldaf.drop( 'text', axis=1 ); ldaf = ldaf.drop( 'embedding', axis=1 );
-        rdaf  = rdaf.drop( 'text', axis=1 ); rdaf = rdaf.drop( 'embedding', axis=1 );
+        ldaf  = ldaf.drop( 'text', axis=1, errors="ignore" ); ldaf = ldaf.drop( 'embedding', axis=1 , errors="ignore");
+        rdaf  = rdaf.drop( 'text', axis=1, errors="ignore" ); rdaf = rdaf.drop( 'embedding', axis=1 , errors="ignore");
         ldaf  = ldaf.drop(  'npi', axis=1 )  if self.args.npi == False else ldaf
         rdaf  = rdaf.drop(  'npi', axis=1 )  if self.args.npi == False else rdaf
         # int columns.  uid's, label
@@ -186,7 +186,7 @@ class DataPreprocessor:
         new_dk = {value: key.upper() for key, values in dok.items() for value in values} #c
         # ----
         def surround( col, value, kod ):      # surround "value" with tag given by "kod", eg [ID] 1234 [/ID].
-            return "[" + kod[col] + "] " + value + " [/" + kod[col] + "]" if (col in kod) else value
+            return "[" + kod[col] + "] " + str(value) + " [/" + kod[col] + "]" if (col in kod) else value
         def formatted_string(row):      # formatted_string column
           lvalue  = []; rvalue = []
           l_rows  = new_ltable.loc[row[lfokn]]
