@@ -7,9 +7,9 @@ import pandas as pd
 from sklearn.utils import shuffle
 
 from src.dao.NEO4J_Graph import Graph
-from src.DF_penumbra import constants
-from src.DF_penumbra.data import test_data
-from src.DF_penumbra.utils import process_int_cols
+from src.penumbra import constants
+from src.penumbra.data import test_data
+from src.penumbra.utils import process_int_cols
 from src.utils import auto_config as config
 
 

@@ -184,7 +184,7 @@ class MagellanTrainer:
         #merge_df = merge_df[['id', 'predicted', 'ltable_fname', 'ltable_lname',
         #                    'rtable_fname', 'rtable_lname', 'ltable_email', 'rtable_email',
         #                    'ltable_sap_no', 'rtable_sap_no']]
-        filename = f'predictions_{self.model.clf.__class__.__name__}'
+        filename = f'results/predictions_{self.model.clf.__class__.__name__}'
         if all:
             filename = filename + '_all'
         merge_df.to_csv(f'{filename}.csv', index=False)

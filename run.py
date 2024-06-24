@@ -5,18 +5,18 @@ import pandas as pd
 import numpy as np
 from sklearn.utils import shuffle
 
-#from DF_adventureworks.duplicate_finder import DuplicateFinder
+#from adventureworks.duplicate_finder import DuplicateFinder
 from src.modelling.model_evaluation import PenumbraEvaluation
 from src.modelling.model_deployment import PenumbraModelDeployer
 from src.data.data_collection import PenumbraDataCollector
 from src.modelling.model_trainining import PenumbraModelTrainer
 from src.preprocessing.data_preprocessing import PenumbraDataPreprocessor
 from src.preprocessing.feature_engineering import PenumbraFeatureEnginner
-from src.DF_penumbra.data_loader import Neo4jDataLoader
-from src.DF_penumbra.data_preprocessor import DataPreprocessor
-from src.DF_penumbra.edge_builder import EdgeBuilder
-from src.DF_penumbra.npi_vaildator import NPIValidator
-from src.DF_penumbra.training_magellan import MagellanTrainer
+from src.penumbra.data_loader import Neo4jDataLoader
+from src.penumbra.data_preprocessor import DataPreprocessor
+from src.penumbra.edge_builder import EdgeBuilder
+from src.penumbra.npi_vaildator import NPIValidator
+from src.penumbra.training_magellan import MagellanTrainer
 import src.utils.auto_config as config 
 import src.lib.deepmatcher as dm
 

@@ -3,9 +3,9 @@
 import argparse
 import pandas as pd
 
-from src.DF_penumbra.edge_builder import EdgeBuilder
-from src.DF_penumbra.data_loader import Neo4jDataLoader
-from src.DF_penumbra.utils import process_first_name_synonyms
+from src.penumbra.edge_builder import EdgeBuilder
+from src.penumbra.data_loader import Neo4jDataLoader
+from src.penumbra.utils import process_first_name_synonyms
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ import pandas as pd
 from collections import defaultdict
 
 from src.dao.NEO4J_Graph import Graph, VectorGraph
-from src.DF_penumbra import constants
+from src.penumbra import constants
 from src.utils import auto_config as config
 
 

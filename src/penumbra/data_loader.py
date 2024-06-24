@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 
 from src.dao.NEO4J_Graph import Graph
-from src.DF_penumbra import constants
-from src.DF_penumbra.utils import (
+from src.penumbra import constants
+from src.penumbra.utils import (
     get_synonyms,
     process_bi_emails,
     process_biSAP_number,
