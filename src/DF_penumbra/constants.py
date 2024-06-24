@@ -65,3 +65,7 @@ EDGE_TYPES = [
 
 COLS_TO_USE = ['uid', 'fname', 'lname', 'fullname', 'npi', 
                'country', 'speciality', 'email', 'sap_no', 'qb_id']
+
+RENAME_COLS = { 'fname': 'first name', 'lname': 'last name', 'fullname':'full name', 
+  'lic_state': 'state license',   'org_type':'organization type', 'state1':'state', 
+  'payments_to':'payments to', 'qb_id':'Quickbase id', 'npi': 'national provider id', }
