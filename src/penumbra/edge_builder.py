@@ -137,7 +137,6 @@ class EdgeBuilder:
             for label, cluster_data in clusters.items():
                 unique_entities[label] = 0
                 for uids in cluster_data.values():
-                    # If the cluster has more than one node, create a master node
                     if len(uids) > 1:
                         unique_entities[label] += 1
             print(unique_entities)
