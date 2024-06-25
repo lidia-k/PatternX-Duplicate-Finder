@@ -69,6 +69,25 @@ class EdgeBuilder:
 
         return clusters
 
+    def _fetch_clusters_by_label(self, session):
+        labels = ["Provider", "Speaker"]
+        clusters = defaultdict(lambda: defaultdict(list))
+
+        for label in labels:
+            stream_q = f"""
+            MATCH (n:{label})
+            CALL gds.wcc.stream('penumbra') YIELD nodeId, componentId 
+            WHERE id(n) = nodeId
+            RETURN gds.util.asNode(nodeId).uid AS name, componentId 
+            ORDER BY componentId, name
+            """
+            result = session.run(stream_q).data()
+            
+            for record in result:
+                clusters[label][record["componentId"]].append(record["name"])
+
+        return clusters
+    
     def _create_m_node_and_relationship(self, session, uids, i):
         # Fetch all the nodes in the cluster
         q = """
@@ -109,6 +128,20 @@ class EdgeBuilder:
             """
             session.run(q, m_uid=m_node["uid"], n_uid=id)
 
+    def count_distinct_clusters_by_label(self):
+        driver = self.graph.get_driver()
+        with driver.session() as session:
+            clusters = self._fetch_clusters_by_label(session)
+
+            unique_entities = {}
+            for label, cluster_data in clusters.items():
+                unique_entities[label] = 0
+                for uids in cluster_data.values():
+                    # If the cluster has more than one node, create a master node
+                    if len(uids) > 1:
+                        unique_entities[label] += 1
+            print(unique_entities)
+
     def _create_r1_master_nodes(self, session):
         self._create_gds_graph(session)
         clusters = self._fetch_clustsers(session)
@@ -122,6 +155,11 @@ class EdgeBuilder:
                 i += 1
         print(f"Created {i-1} master nodes")
 
+    def handle_master(self):
+        driver = self.graph.get_driver()
+        with driver.session() as session:
+            self._create_r1_master_nodes(session)
+            
     def handle_o_dups(self):
         driver = self.graph.get_driver()
         with driver.session() as session:
