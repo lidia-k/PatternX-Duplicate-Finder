@@ -65,7 +65,7 @@ if __name__ == '__main__':
     
     elif args.project == 'penumbra' and args.task == 'dm_test1':
         deployer = PenumbraModelDeployer()
-        model = deployer.deploy_model(config.MODEL_FOLDER + '/model.pth')
+        model = deployer.deploy_model(config.MODEL_FOLDER + 'model.pth')
         preds = deployer.predict('dropped.csv')
         import pdb;  pdb.set_trace()
         
