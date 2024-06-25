@@ -80,7 +80,7 @@ class EdgeBuilder:
 
         # Aggregate the properties of the nodes
         master_props = {}
-        master_props["uid"] = f"r1_m_{i}"
+        master_props["uid"] = f"m_{i}"
         for node in result:
             for key, value in node["n"].items():
                 if key in ["uid", "text", "embedding"]:
@@ -105,7 +105,7 @@ class EdgeBuilder:
         for id in uids:
             q = """
             MATCH (m:Master), (n) WHERE m.uid = $m_uid AND n.uid = $n_uid
-            MERGE (m)-[:r1_master]-(n)
+            MERGE (m)-[:master]-(n)
             """
             session.run(q, m_uid=m_node["uid"], n_uid=id)
 
