@@ -88,8 +88,8 @@ class DataPreprocessor:
         # drop columns
         ldaf  = ldaf.drop( 'text', axis=1, errors="ignore" ); ldaf = ldaf.drop( 'embedding', axis=1 , errors="ignore");
         rdaf  = rdaf.drop( 'text', axis=1, errors="ignore" ); rdaf = rdaf.drop( 'embedding', axis=1 , errors="ignore");
-        ldaf  = ldaf.drop(  'npi', axis=1 )  if self.args.npi == False else ldaf
-        rdaf  = rdaf.drop(  'npi', axis=1 )  if self.args.npi == False else rdaf
+        ldaf  = ldaf.drop(  'npi', axis=1, errors="ignore" )  if self.args.npi == False else ldaf
+        rdaf  = rdaf.drop(  'npi', axis=1, errors="ignore" )  if self.args.npi == False else rdaf
         # int columns.  uid's, label
         ldaf  = process_int_cols( ldaf, constants.INT_COLS);  ldaf = ldaf.replace( 0, np.nan );
         rdaf  = process_int_cols( rdaf, constants.INT_COLS);  rdaf = rdaf.replace( 0, np.nan );
@@ -99,8 +99,11 @@ class DataPreprocessor:
 
     # Label the pairs as matching or non-matching and prepare the training data. 
     # build_*() functions adds column prefix "xtable_"
-    def prepare_ditto_data(self, skewed_factor):
-        A1,B1,C1   = self._build_matching_pairs();
+    def prepare_ditto_data(self, skewed_factor, only_r0=False):
+        if only_r0:
+            A1,B1,C1   = self._build_matching_pairs_r0_other();
+        else:
+            A1,B1,C1   = self._build_matching_pairs();
         limit      = 200 #sn math.floor( len(C1) * skewed_factor )
         A0,B0,C0   = self._build_non_matching_pairs( limit=limit )
         A1 = A1[ A0.columns ]; A = pd.concat( [A1, A0] );   # matchDaf    = matchDaf[ mismatchDaf.columns ]
@@ -113,6 +116,15 @@ class DataPreprocessor:
     def _build_matching_pairs(self):
         edge_types = ['r1_' + et for et in constants.EDGE_TYPES]
         query = f''' UNWIND {edge_types} AS type MATCH (a)-[r]->(b) WHERE type(r) = type AND a.uid <> b.uid RETURN DISTINCT a, b '''
+        result = self.graph.cypher_transaction( query )
+        A,B,C = self._pairs2daf( result, 1 )                                  #sn try _create_df_1s( result, label=1, side='l' )
+        print(f'The number of match pairs:', len(C))
+        return A,B,C
+    
+    def _build_matching_pairs_r0_other(self):
+        edge_types = ['r0_other']
+        query = f''' UNWIND {edge_types} AS type MATCH (a)-[r]->(b) WHERE type(r) = type AND a.uid <> b.uid RETURN DISTINCT a, b '''
+        print("query", query)
         result = self.graph.cypher_transaction( query )
         A,B,C = self._pairs2daf( result, 1 )                                  #sn try _create_df_1s( result, label=1, side='l' )
         print(f'The number of match pairs:', len(C))
@@ -138,7 +150,7 @@ class DataPreprocessor:
 
     def _build_non_matching_pairs(self, limit):  # For nodes that have different npis, create a non-matching pair.
         #1
-        query  = f'''MATCH (n) WHERE NOT n:Master AND n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())  RETURN n limit {limit}''' #f
+        query  = f'''MATCH (n) WHERE NOT n:Master AND n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-()) AND NOT EXISTS ((n)-[:r0_other]-()) RETURN n limit {limit}''' #f
         result = self.graph.cypher_transaction( query )                       # result is a 2d-array with 2nd coord always 0
         result = [ result[i][0] for i in range(len(result)) ]                 # change to a 1d-array  #g
         #2

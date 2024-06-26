@@ -81,7 +81,7 @@ class DataPreprocessor:
         """
         q = f'''
         MATCH (n)
-        WHERE NOT n:Master AND n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())
+        WHERE NOT n:Master AND n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-()) AND NOT EXISTS ((n)-[:r0_other]-())
         RETURN n
         '''
         result = self.graph.cypher_transaction(q)
@@ -110,7 +110,7 @@ class DataPreprocessor:
         print(f'The number of non-matching pairs:', len(sample_df))
         return sample_df, dropped_df
        
-    def _build_matching_pairs(self, size):
+    def _build_matching_pairs(self, size, only_r0=False):
         """
         Retrieves pairs of nodes connected by specified types of edges.
 
@@ -123,7 +123,10 @@ class DataPreprocessor:
             pandas.DataFrame: 
             A DataFrame containing the distinct pairs of nodes that match the criteria, with a column labeled '1'.
         """
-        edge_types = ['r1_' + et for et in constants.EDGE_TYPES]
+        if only_r0:
+            edge_types = ['r0_other']
+        else:
+            edge_types = ['r1_' + et for et in constants.EDGE_TYPES]
         q = f'''
         UNWIND {edge_types} AS type
         MATCH (a)-[r]->(b)
@@ -178,11 +181,11 @@ class DataPreprocessor:
         )
         return A, B, C
 
-    def prepare_training_data(self, skewed_factor, size):
+    def prepare_training_data(self, skewed_factor, size, only_r0=False):
         """
         Label the pairs as matching or non-matching and prepare the training data. 
         """
-        matching_df = self._build_matching_pairs(size)
+        matching_df = self._build_matching_pairs(size, only_r0=only_r0)
         
         limit = len(matching_df) * skewed_factor
         non_matching_df, _ = self._build_non_matching_pairs(limit=limit)
