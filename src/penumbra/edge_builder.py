@@ -99,7 +99,7 @@ class EdgeBuilder:
 
         # Aggregate the properties of the nodes
         master_props = {}
-        master_props["uid"] = f"r1_m_{i}"
+        master_props["uid"] = f"m_{i}"
         for node in result:
             for key, value in node["n"].items():
                 if key in ["uid", "text", "embedding"]:
@@ -124,7 +124,7 @@ class EdgeBuilder:
         for id in uids:
             q = """
             MATCH (m:Master), (n) WHERE m.uid = $m_uid AND n.uid = $n_uid
-            MERGE (m)-[:r1_master]-(n)
+            MERGE (m)-[:master]-(n)
             """
             session.run(q, m_uid=m_node["uid"], n_uid=id)
 
@@ -138,7 +138,7 @@ class EdgeBuilder:
                 unique_entities[label] = len(cluster_data.values())
             print(unique_entities)
 
-    def _create_r1_master_nodes(self, session):
+    def _create_master_nodes(self, session):
         self._create_gds_graph(session)
         clusters = self._fetch_clustsers(session)
         print(f"Found {len(clusters)} clusters")
@@ -154,13 +154,12 @@ class EdgeBuilder:
     def handle_master(self):
         driver = self.graph.get_driver()
         with driver.session() as session:
-            self._create_r1_master_nodes(session)
+            self._create_master_nodes(session)
             
     def handle_o_dups(self):
         driver = self.graph.get_driver()
         with driver.session() as session:
             self._build_o_dup_edges(session)
-            # self._create_r1_master_nodes(session)
 
     def lookup_o_dups(self):
         driver = self.graph.get_driver()
