@@ -154,6 +154,14 @@ if __name__ == '__main__':
         print('Building edges and master nodes for obvious duplicates')
         eb = EdgeBuilder()
         eb.handle_o_dups()
+    
+    elif args.project == 'penumbra' and args.task == 'neo4j-master':
+        eb = EdgeBuilder()
+        eb.handle_master()
+    
+    elif args.project == 'penumbra' and args.task == 'neo4j-count-distinct':
+        eb = EdgeBuilder()
+        eb.count_distinct_clusters_by_label()
 
     elif args.project == 'penumbra' and args.task == 'synonym':
         dl = Neo4jDataLoader()

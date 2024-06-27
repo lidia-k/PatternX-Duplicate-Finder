@@ -16,12 +16,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.task == "match-firstlast-name":
-        df = pd.read_csv("predictions_RandomForestClassifier_all.csv")
+        df = pd.read_csv("results/predictions_RandomForestClassifier_all.csv")
         # replace fname with synonyms
         process_first_name_synonyms(df)
 
     elif args.task == "create-rf-edges":
-        df = pd.read_csv("predictions_RandomForestClassifier_all.csv")
+        df = pd.read_csv("results/predictions_RandomForestClassifier_all.csv")
         df = df[df["predicted"] == 1]
         print(df)
 
