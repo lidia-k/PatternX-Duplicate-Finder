@@ -8,14 +8,9 @@ import src.utils.auto_config as config
 import torch 
 from tqdm import tqdm
 
-class ModelTrainer:
-    def train_model(self, features, labels):
-        pass
 
-
-class PenumbraModelTrainer(ModelTrainer):
+class PenumbraModelTrainer:
     def __init__(self) -> None:
-        super().__init__()
         self.data_columns = [
             'ltable_Email Address', 'ltable_First Name',
             'ltable_Quickbase Record ID#', 'ltable_Specialty', 'ltable_Last Name',
@@ -35,19 +30,28 @@ class PenumbraModelTrainer(ModelTrainer):
         
     def train_model(self, df):
         pos_neg_ratio = np.sum(df['label'] == 1)/ np.sum(df['label'] == 0)
-        dm.data.split(df, config.DATA_DIR, 'train.csv', 'valid.csv', 'test.csv',[3, 1, 1])
+        print(f"pos_neg_ratio: {pos_neg_ratio}")
 
+        dm.data.split(df, config.DATA_DIR, 'train.csv', 'valid.csv', 'test.csv',[3, 1, 1])
         train, validation, test = dm.data.process(
             path=config.DATA_DIR,
             cache='train_cache0.pth',
             train='train.csv',
             validation='valid.csv',
             test='test.csv',
-            use_magellan_convention=True
+            use_magellan_convention=True,
+            ignore_columns=('ltable_id', 'rtable_id')
         )
 
         model = dm.MatchingModel(attr_summarizer='hybrid')
-        model.run_train(train, validation, epochs=3, batch_size=16, best_save_path= config.MODEL_FOLDER +"model.pth", pos_neg_ratio=pos_neg_ratio)
+        model.run_train(
+            train, 
+            validation, 
+            epochs=3, 
+            batch_size=16, 
+            best_save_path=config.MODEL_DIR +"model.pth", 
+            pos_neg_ratio=pos_neg_ratio
+        )
         self.model_evaluator.evaluate(model, test)
         return model
     

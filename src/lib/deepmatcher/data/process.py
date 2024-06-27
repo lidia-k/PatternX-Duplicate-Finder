@@ -184,7 +184,7 @@ def process(path,
                          '"deepmatcher.data.process_unlabeled" instead.')
 
     if use_magellan_convention:
-        id_attr = '_id'
+        id_attr = 'id'
         left_prefix = 'ltable_'
         right_prefix = 'rtable_'
 

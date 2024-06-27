@@ -63,11 +63,10 @@ if __name__ == '__main__':
         trainer = PenumbraModelTrainer()
         model = trainer.train_model(data)
     
-    elif args.project == 'penumbra' and args.task == 'dm_test1':
+    elif args.project == 'penumbra' and args.task == 'dm_test':
         deployer = PenumbraModelDeployer()
         model = deployer.deploy_model(model_path=config.MODEL_DIR + 'model.pth')
-        preds = deployer.predict('dropped.csv')
-        import pdb;  pdb.set_trace()
+        preds = deployer.predict('test2_dm.csv')
         
     elif args.project == 'penumbra' and args.task == 'online_train':
         print(f"model name: {args.model} data file: {args.data}  online training...")
