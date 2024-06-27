@@ -86,7 +86,7 @@ class DataPreprocessor:
         """
         base_q = f'''
         MATCH (n)
-        WHERE n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())
+        WHERE NOT n:Master AND n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())
         '''
         syn_c = ''
         if not self.include_synonyms:
