@@ -46,7 +46,7 @@ def lookupNPI():
 def insertNpi():
     try:   driver = GraphDatabase.driver( "bolt://localhost:7687", auth=upass )
     except Exception as e:  print('error.  Is the neo4j database docker container running?')
-    baseQuery = "match (n) where n.uid = \'{}\' set n.npi = \'{}\'"
+    baseQuery = "match (n) where n.uid = \'{}\' set n.npi = \'{}\', n.note = 'npi retrieved with registry API'"
     df = pandas.read_csv(outfile)
     print(df.columns)
     df["result"] = df["result"].apply(lambda x: json.loads(x))
