@@ -38,7 +38,6 @@ def lookupNPI():
     df.to_csv(outfile, index=False)
 #-------------------------------------------------------------------------------
 # Intent: Only insert NPI into Neo4J of qualified rows:
-# - There is only 1 row including fname, lname. means ignore rows where fname and lname overlap.
 # - this row only returns 1 result from Npi Registry Lookup. means if more than 1 npi is received from Npi Registry Lookup then ignore.
 # Input: csv file outfile from lookupNPI() function
 # Output: csv file (outfile + "_result.csv" ) contains updated rows with corresponding npi
@@ -57,7 +56,6 @@ def insertNpi():
     updated_npi = 0
     with driver.session() as session:
         for name, group in grouped:
-            # if len(group) == 1: # ignore rows where fname and lname overlap.
             for row_index, row in group.iterrows():
                 npi = row["result"][0]["number"]
                 df.loc[row["uid"], "npi"] = npi
