@@ -46,26 +46,26 @@ def lookupNPI():
 def insertNpi():
     try:   driver = GraphDatabase.driver( "bolt://localhost:7687", auth=upass )
     except Exception as e:  print('error.  Is the neo4j database docker container running?')
-    baseQuery = "match (n) where n.uid = \'{}\' set n.npi = \'{}\', n.note = 'npi retrieved with registry API'"
+    baseQuery = "match (n) where n.uid = \'{}\' set n.npi = \'{}\', n.npi_fetch = 1"
     df = pandas.read_csv(outfile)
     print(df.columns)
     df["result"] = df["result"].apply(lambda x: json.loads(x))
     df = df[df['result'].map(len) == 1] # ignore if more than 1 npi is received from Npi Registry Lookup 
+    df = df[~df['uid'].str.contains("r1_m_")]
     grouped = df.groupby(["first_name", "last_name"])
     df["npi"] = pandas.NA; df = df.set_index("uid", drop=False)
     updated_npi = 0
     with driver.session() as session:
         for name, group in grouped:
-            if len(group) == 1: # ignore rows where fname and lname overlap.
-                for row_index, row in group.iterrows():
-                    npi = row["result"][0]["number"]
-                    df.loc[row["uid"], "npi"] = npi
-                    updated_npi += 1
-                    update = baseQuery.format(row["uid"], npi)
-                    # # update = f"""MATCH (n) where n.uid = "{row["uid"]}" REMOVE n.npi RETURN n"""
-                    session.run(update)
-                    # npis.append(npi)
-                    print("Updated node.uid = {} with npi = {}".format(row["uid"], npi))
+            # if len(group) == 1: # ignore rows where fname and lname overlap.
+            for row_index, row in group.iterrows():
+                npi = row["result"][0]["number"]
+                df.loc[row["uid"], "npi"] = npi
+                updated_npi += 1
+                update = baseQuery.format(row["uid"], npi)
+                # update = f"""MATCH (n) where n.uid = "{row["uid"]}" REMOVE n.npi RETURN n"""
+                session.run(update)
+                print("Updated node.uid = {} with npi = {}".format(row["uid"], npi))
     print(f"Total - Updated node: {updated_npi}")
     df = df[df["npi"].notna()]
     df.to_csv(outfile+"_result.csv", index=False)
