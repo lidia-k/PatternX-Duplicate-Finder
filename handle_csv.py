@@ -13,6 +13,7 @@ if __name__ == "__main__":
         description="Run different functions based on input parameters."
     )
     parser.add_argument("--task", type=str, default=None, help="task name", metavar="")
+    parser.add_argument("--file_path", type=str, default=None, help="task name", metavar="")
     args = parser.parse_args()
 
     if args.task == "match-firstlast-name":
@@ -61,3 +62,30 @@ if __name__ == "__main__":
         data_dir = "src/data"
         dl = Neo4jDataLoader(data_dir)
         dl.export_results(filename="master.csv")
+    
+    elif args.task == "split" and args.file_path is not None:
+        df = pd.read_csv(f'{args.file_path}.csv')
+
+        all_columns = df.columns
+
+        # Separate left and right table columns
+        left_columns = [col for col in all_columns if col.startswith('ltable_')]
+        right_columns = [col for col in all_columns if col.startswith('rtable_')]
+
+        # Create new dataframes for left and right tables
+        df_left = df[left_columns].copy()
+        df_right = df[right_columns].copy()
+
+        # Rename columns to remove prefixes
+        df_left.columns = [col.replace('ltable_', '') for col in df_left.columns]
+        df_right.columns = [col.replace('rtable_', '') for col in df_right.columns]
+
+        # Create a new DataFrame to store the result
+        df_result = pd.DataFrame()
+        for i in range(len(df)):
+            df_result = pd.concat([df_result, df_left.iloc[[i]], df_right.iloc[[i]]], ignore_index=True)
+
+        # Save the result to a new CSV file
+        df_result.to_csv(f'{args.file_path}_split.csv', index=False)
+        print("File has been split and saved")
+
