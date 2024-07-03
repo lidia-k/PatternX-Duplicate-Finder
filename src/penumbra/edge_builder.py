@@ -88,7 +88,7 @@ class EdgeBuilder:
 
         return clusters
     
-    def _create_m_node_and_relationship(self, session, uids, i):
+    def _create_m_node_and_relationship(self, session, uids, i, is_singleton):
         # Fetch all the nodes in the cluster
         q = """
         MATCH (n)
@@ -100,6 +100,8 @@ class EdgeBuilder:
         # Aggregate the properties of the nodes
         master_props = {}
         master_props["uid"] = f"m_{i}"
+        if is_singleton:
+            master_props["singleton"] = 1
         for node in result:
             for key, value in node["n"].items():
                 if key in ["uid", "text", "embedding"]:
@@ -131,6 +133,7 @@ class EdgeBuilder:
     def count_distinct_clusters_by_label(self):
         driver = self.graph.get_driver()
         with driver.session() as session:
+            self._create_gds_graph(session)
             clusters = self._fetch_clusters_by_label(session)
 
             unique_entities = {}
@@ -143,12 +146,16 @@ class EdgeBuilder:
         clusters = self._fetch_clustsers(session)
         print(f"Found {len(clusters)} clusters")
 
+        # delete all Master node
+        session.run("MATCH (:Master)-[r]-() DELETE r")
+        session.run("MATCH (m:Master) DELETE m")
+
         i = 1
         for uids in clusters.values():
-            # If the cluster has more than one node, create a master node
-            if len(uids) > 1:
-                self._create_m_node_and_relationship(session, uids, i)
-                i += 1
+            is_singleton = False if len(uids) > 1 else True
+            self._create_m_node_and_relationship(session, uids, i, is_singleton)
+            i += 1
+
         print(f"Created {i-1} master nodes")
 
     def handle_master(self):
