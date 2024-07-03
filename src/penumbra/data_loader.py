@@ -345,4 +345,4 @@ class Neo4jDataLoader:
 
         # export csv
         df = df[["group", "round"] + columns]
-        df.to_csv(filename)
+        df.to_csv(filename, index=False, encoding='utf-8-sig')
