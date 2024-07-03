@@ -122,38 +122,11 @@ class Neo4jDataLoader:
     def import_human_labeled(self, infile):
         df = pd.read_csv(infile)
         df.replace("-", np.nan, inplace=True)
-        node_df = df.drop(columns=["match", "group"])
         relation_df = df[df["group"].notna()]
         driver = self.graph.get_driver()
         with driver.session() as session:
-            # create node if not exists
-            result = session.run(
-                "MATCH (n) WHERE (n:Provider OR n:Speaker) RETURN n.uid"
-            )
-            exists_uids = [record[0] for record in result]
-            all_uids = df["uid"].to_list()
-            non_exists_id = list(set(all_uids) - set(exists_uids))
-            if non_exists_id:
-                non_exists_df = node_df[node_df["uid"].isin(non_exists_id)]
-
-                def create_query(record):
-                    node_label = "Speaker" if "sp_" in record["uid"] else "Provider"
-                    query = f"CREATE (n:{node_label} {{"
-                    query += ", ".join([f"{key}: ${key}" for key in record.keys()])
-                    query += "})"
-                    return query
-
-                for index, row in non_exists_df.iterrows():
-                    record = row.to_dict()
-                    filtered_record = {k: v for k, v in record.items() if pd.notna(v)}
-                    # insert node
-                    session.run(
-                        create_query(filtered_record), parameters=filtered_record
-                    )
-                print(f"Added nodes: {non_exists_df}")
-
-            # remove r0_other
-            session.run("MATCH ()-[r:r0_other]->() DELETE r")
+            # remove r0_mix
+            session.run("MATCH ()-[r:r0_mix]->() DELETE r")
             # label 1 (x) pair
             label1_pairs = []
             grouped = relation_df.groupby("group")
@@ -169,9 +142,9 @@ class Neo4jDataLoader:
                                 f"""MATCH (a), (b)
                                 WHERE (a:Provider OR a:Speaker) AND (b:Provider OR b:Speaker)
                                     AND a.uid='{uids[i]}' AND b.uid='{uids[j]}'
-                                CREATE (a)-[:r0_other]->(b)
+                                CREATE (a)-[:r0_mix]->(b)
                                 RETURN a, b"""
                             )
                             label1_pairs.append([left.to_dict(), right.to_dict()])
         driver.close()
-        return node_df, label1_pairs
+        return label1_pairs

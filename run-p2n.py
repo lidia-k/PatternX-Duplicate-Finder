@@ -190,7 +190,7 @@ elif args.project == 'penumbra' and args.task == 'ditto-pairs':           #sn  a
             with open( path, "w" ) as fh:
                 for line in los: fh.write( f"{line}\n" )
         dp = dataprep.DataPreprocessor( dadi, args )                               # lidia's src/DF_penumbra/data_preprocessor.py
-        ltable, rtable, data = dp.prepare_ditto_data( skewed_factor=.5, only_r0=True )  # fetch from database into dataframe
+        ltable, rtable, data = dp.prepare_ditto_data( skewed_factor=.5 )  # fetch from database into dataframe
         start_time = time.strftime("%Y%m%d-%H%M%S");   print( "gel2ditto()  start = "  + start_time );
         dok                  = { "PERSON" : [ 'first name', 'last name', 'fname']
         ,                        "ID"     : ['national provider id', 'sap_no', 'Quickbase id'] }

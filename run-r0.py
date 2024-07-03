@@ -7,5 +7,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     dl = Neo4jDataLoader(data_dir=None)
-    all_nodes, pair_nodes = dl.import_human_labeled(args.file)
+    pair_nodes = dl.import_human_labeled(args.file)
     print(f"X pairs: {len(pair_nodes)}")

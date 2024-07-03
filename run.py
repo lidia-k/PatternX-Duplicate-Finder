@@ -171,7 +171,7 @@ if __name__ == '__main__':
 
         print('Preparing training data with{} NPI...'.format('' if args.npi else 'out'))
         dp = DataPreprocessor(data_dir, include_npi=args.npi)
-        ltable, rtable, data = dp.prepare_training_data(skewed_factor=2, size=args.size, only_r0=True)
+        ltable, rtable, data = dp.prepare_training_data(skewed_factor=2, size=args.size)
 
         print('Training {} with{} NPI...'.format(args.magellan_model, '' if args.npi else 'out'))
         mt = MagellanTrainer(ltable, rtable, data, model=args.magellan_model, training=True)
