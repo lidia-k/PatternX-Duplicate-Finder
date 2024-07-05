@@ -7,10 +7,9 @@ import numpy as np
 import pandas as pd
 
 from src.dao.NEO4J_Graph import Graph
-from src.DF_penumbra import constants
-from src.DF_penumbra.utils import (
+from src.penumbra import constants
+from src.penumbra.utils import (
     get_synonyms,
-    get_us_states,
     process_bi_emails,
     process_biSAP_number,
     process_columns,
@@ -102,18 +101,10 @@ class Neo4jDataLoader:
         return file_name
 
     def _load_data_from_cypher(self, file_path):
-        if "sp" in file_path:
-            cypher_file = (
-                f"{self.data_dir}/sp_all.cypher"
-                if "all" in file_path
-                else f"{self.data_dir}/sp.cypher"
-            )
-        else:
-            cypher_file = (
-                f"{self.data_dir}/po_vcheck.cypher"
-                if "vcheck" in file_path
-                else f"{self.data_dir}/po.cypher"
-            )
+        if 'sp' in file_path:
+            cypher_file = f'{self.data_dir}/sp_all.cypher' if 'all' in file_path else f'{self.data_dir}/sp.cypher'
+        else: 
+            cypher_file = f'{self.data_dir}/po_vcheck.cypher' if 'vcheck' in file_path else f'{self.data_dir}/po.cypher'
 
         with open(cypher_file, "r") as f:
             query = f.read()
@@ -127,26 +118,16 @@ class Neo4jDataLoader:
         for key, df in df_dict.items():
             if "vcheck" in key:
                 continue
-            (
-                common_cols.intersection_update(df.columns)
-                if common_cols
-                else common_cols.update(df.columns)
-            )
+            common_cols.intersection_update(df.columns) if common_cols else common_cols.update(df.columns)
         return common_cols
 
     def load_csv_to_neo4j(self):
         self.graph.wipe_database()
 
         # On Linux, docker exec chown and chmod the data directory
-        if platform.system() == "Linux":
+        if platform.system() == 'Linux':
             cmd = "docker exec neo4j /bin/bash -c 'chown -R 777:777 import/data && chmod -R 777 import/data'"
-            subprocess.run(
-                cmd,
-                shell=True,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+            subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
 
         # Remove existing data files
         f_types = ["sp_*.csv", "po_*.csv"]
@@ -268,6 +249,103 @@ class Neo4jDataLoader:
         print(
             "Note - use this cypher command to delete all Synoname nodes: MATCH (n:Synoname) DELETE n"
         )
+
+    def export_results(self, filename="master.csv"):
+        # get all data
+        q_all_data = """
+        MATCH (n)
+        WHERE (n:Provider OR n:Speaker)
+        RETURN n
+        ORDER BY n.lname, n.fname
+        """
+        result = self.graph.cypher_transaction(q_all_data)
+        df = pd.DataFrame([dict(record[0]) for record in result])
+
+        # only show columns
+        columns = [
+            "uid",
+            "lname",
+            "fname",
+            "fullname",
+            "email",
+            "qb_id",
+            "sap_no",
+            "npi",
+            "country",
+            "currency",
+            "category",
+            "org",
+            "specialty",
+        ]
+        df = df[columns]
+        df = df.set_index("uid", drop=False)
+        print(df)
+        # get nodes has relashionship
+        q_relationship_nodes = """
+        MATCH (n)-[r]-(m)
+        WHERE (n:Provider OR n:Speaker) AND (m:Provider OR m:Speaker)
+            AND type(r) IN ['r1_fullname_email', 'r1_fullname_qb_id', 'r1_fullname_sap_no', 'r1_npi', 'r2_rf']
+        WITH n, m, r
+        ORDER BY type(r)
+        RETURN n.uid, collect(m.uid), collect(type(r))[-1] AS relationship
+        """
+        result = self.graph.cypher_transaction(q_relationship_nodes)
+        df_relationship = pd.DataFrame(
+            [
+                dict(uid=record[0], duplicates=record[1], relationship=record[2])
+                for record in result
+            ]
+        )
+        df_relationship = df_relationship.set_index("uid")
+
+        # set round column: r1 or r2
+        def set_round_column(row):
+            if row["uid"] in df_relationship.index:
+                return df_relationship.loc[row["uid"], "relationship"].split("_", 1)[0]
+            return None
+
+        df["round"] = df.apply(set_round_column, axis=1)
+
+        # mumbering to group duplicate nodes, but still trying to keep the order lname
+        groups = {}
+
+        def set_group_index(row):
+            groups_keys = groups.keys()
+            if row["uid"] in df_relationship.index:
+                duplicates = df_relationship.loc[row["uid"], "duplicates"]
+                for d in duplicates:
+                    if d in groups_keys:
+                        return groups[d]
+                groups[row["uid"]] = len(groups_keys) + 1
+                return groups[row["uid"]]
+            return len(groups_keys) + 0.1  # no duplicate
+
+        df["group_index"] = df.apply(set_group_index, axis=1)
+        df.sort_values(by=["group_index"], inplace=True)
+
+        # Add empty row after each group
+        df_groups = df.groupby(df['group_index']).last()
+        df_groups = df_groups[df_groups.index % 1 == 0][['uid']]
+        new_rows = pd.DataFrame(
+            "-",
+            index=df_groups['uid'] + '_cp',
+            columns=df.columns
+        )
+        new_rows["group_index"] = df_groups.index + 0.05
+        df = pd.concat([df, new_rows])
+        df.sort_values(by=["group_index"], inplace=True)
+
+        # set x/o
+        def set_group(value):
+            if value % 1 != 0:  # no duplicate
+                return None
+            return "x" if int(value) % 2 == 0 else "o"
+
+        df["group"] = df["group_index"].apply(set_group)
+
+        # export csv
+        df = df[["group", "round"] + columns]
+        df.to_csv(filename)
 
     def _clone_original_values(self, properties=[]):
         for p in properties:

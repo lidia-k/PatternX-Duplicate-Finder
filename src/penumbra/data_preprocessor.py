@@ -7,9 +7,9 @@ import pandas as pd
 from sklearn.utils import shuffle
 
 from src.dao.NEO4J_Graph import Graph
-from src.DF_penumbra import constants
-from src.DF_penumbra.data import test_data
-from src.DF_penumbra.utils import process_int_cols
+from src.penumbra import constants
+from src.penumbra.data import test_data
+from src.penumbra.utils import process_int_cols
 from src.utils import auto_config as config
 
 
@@ -397,7 +397,7 @@ class DataPreprocessor:
             right_dict = {'rtable_' + col: val for col, val in right.items()}
             paired_data.append({**left_dict, **right_dict})
 
-        cols_to_drop = ['id', 'ltable_id', 'rtable_id', 'ltable_uid', 'rtable_uid', 'label']
+        cols_to_drop = ['id', 'ltable_id', 'rtable_id', 'label']
         data.drop(columns=cols_to_drop, inplace=True)
         
         paired_df = pd.DataFrame(paired_data)
