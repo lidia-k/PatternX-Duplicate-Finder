@@ -90,7 +90,7 @@ class DataPreprocessor:
         '''
         syn_c = ''
         if not self.include_synonyms:
-            syn_c = 'AND NOT n:Synonym '
+            syn_c = 'AND (n:Provider OR n:Speaker) '
         q = f'''
         {base_q} {syn_c}
         RETURN n
@@ -364,7 +364,7 @@ class DataPreprocessor:
         # fetch all data from Neo4J except for exclude_uids
         q = f'''
         MATCH (n)
-        WHERE NOT n.uid in {exclude_uids}
+        WHERE (n:Provider OR n:Speaker) AND NOT n.uid in {exclude_uids} 
         RETURN n
         '''
         result = self.graph.cypher_transaction(q)
