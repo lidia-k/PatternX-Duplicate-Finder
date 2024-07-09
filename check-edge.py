@@ -5,21 +5,46 @@ from src.penumbra import constants
 from src.penumbra.data_preprocessor import DataPreprocessor
 
 
+def df_columns(df):
+    cols = [
+        "uid",
+        "fname",
+        "lname",
+        "fullname",
+        "npi",
+        "country",
+        "email",
+        "sap_no",
+        "qb_id",
+        "currency",
+        "category",
+        "specialty",
+        "org",
+    ]
+
+    df = df[
+        [c for c in ["type", "label"]]
+        + ["ltable_" + c for c in cols]
+        + ["rtable_" + c for c in cols]
+    ]
+    return df
+
+
 def get_matching_pairs():
     edge_types = ["r1_" + et for et in constants.EDGE_TYPES]
     edge_types += ["r2_rf"]
     q = f"""
     UNWIND {edge_types} AS type
     MATCH (a)-[r]->(b)
-    WHERE type(r) = type AND id(a) < id(b)  AND (a:Provider OR a:Speaker) AND (b:Provider OR b:Speaker)
+    WHERE type(r) = type AND id(a) < id(b) AND (a:Provider OR a:Speaker) AND (b:Provider OR b:Speaker)
     RETURN DISTINCT a, b
     """
 
     result = dp.graph.cypher_transaction(q)
     df = dp._create_df(result, label=1)
     df["id"] = df.index
-    print("All Matching pairs")
-    print(df)
+    # print("All Matching pairs")
+    # print(df)
     return df
 
 
@@ -40,15 +65,17 @@ def matching_pairs_diff():
         ]
         print(col)
         print(diff)
+        diff["type"] = "matching_diff_" + col
         diff_df.append(diff)
 
     matching_pairs = pd.concat(diff_df, sort=False)
     matching_pairs = matching_pairs.drop_duplicates(subset=["id"])
+    print("matching_pairs_diff")
     print(matching_pairs)
-    matching_pairs = matching_pairs[
-        ["ltable_" + c for c in cols] + ["rtable_" + c for c in cols]
-    ]
-    matching_pairs.to_csv("matching_pairs_diff.csv", index=False)
+    matching_pairs = df_columns(matching_pairs)
+
+    # matching_pairs.to_csv("matching_pairs_diff.csv", index=False)
+    return matching_pairs
 
 
 def matching_pairs_synonyms():
@@ -65,12 +92,12 @@ def matching_pairs_synonyms():
         lambda x: [s.strip() for s in synonyms[x.strip()].split(",")]
     )
     synonyms_df = synonyms_df.explode("rtable_fname")
-    synonyms_df = synonyms_df[
-        ["ltable_" + c for c in cols] + ["rtable_" + c for c in cols]
-    ]
-    print("synonyms_df")
+    synonyms_df["type"] = "matching_synonyms"
+    synonyms_df = df_columns(synonyms_df)
+    print("matching_pairs_synonyms")
     print(synonyms_df)
-    synonyms_df.to_csv("matching_pairs_synonyms.csv", index=False)
+    # synonyms_df.to_csv("matching_pairs_synonyms.csv", index=False)
+    return synonyms_df
 
 
 def non_matching_pairs_same_col():
@@ -78,32 +105,32 @@ def non_matching_pairs_same_col():
     Non-matching entities: pairs with same sap_no, qb_id or email
     -
     """
-    df, _ = dp._build_non_matching_pairs(100000)
-    df = dp._drop_high_missing_features(df, threshold=92)
-
-    df["id"] = df.index
-    print("All Non matching pairs")
-    print(df)
 
     diff_cols = ["sap_no", "qb_id", "email"]
     same_df = []
+
     for col in diff_cols:
-        same = df[
-            df[f"ltable_{col}"].notna()
-            & df[f"rtable_{col}"].notna()
-            & (df[f"ltable_{col}"] == df[f"rtable_{col}"])
-        ]
-        print(col)
-        print(same)
-        same_df.append(same)
+        q = f"""
+        MATCH (a), (b)
+        WHERE id(a) < id(b)
+        AND (a:Provider OR a:Speaker) AND (b:Provider OR b:Speaker)
+        AND a.{col} = b.{col}
+        AND NOT (a)-[]-(b)
+        RETURN a, b
+        """
+        print(q)
+        result = dp.graph.cypher_transaction(q)
+        if len(result) > 0:
+            same = dp._create_df(result, label=0)
+            same["type"] = "non_matching_same_" + col
+            same_df.append(same)
 
     non_matching_pairs = pd.concat(same_df, sort=False)
-    non_matching_pairs = non_matching_pairs.drop_duplicates(subset=["id"])
-    non_matching_pairs = non_matching_pairs[
-        ["ltable_" + c for c in cols] + ["rtable_" + c for c in cols]
-    ]
+    non_matching_pairs = df_columns(non_matching_pairs)
+    print("non_matching_pairs_same_col")
     print(non_matching_pairs)
-    non_matching_pairs.to_csv("non_matching_pairs.csv", index=False)
+    # non_matching_pairs.to_csv("non_matching_pairs.csv", index=False)
+    return non_matching_pairs
 
 
 def non_matching_synonyms(infile):
@@ -159,12 +186,18 @@ def non_matching_synonyms(infile):
     )
     paired_df = paired_df.explode("ltable_fname")
     paired_df = paired_df.explode("rtable_fname")
-    cols.remove("sap_no")
-    paired_df = paired_df[
-        ["ltable_" + c for c in cols] + ["rtable_" + c for c in cols]
-    ]
+    if not ("ltable_sap_no" in paired_df.columns.to_list()):
+        paired_df["ltable_sap_no"] = pd.NA
+    if not ("rtable_sap_no" in paired_df.columns.to_list()):
+        paired_df["rtable_sap_no"] = pd.NA
+
+    paired_df["type"] = "non_matching_synonyms"
+    paired_df["label"] = 0
+    paired_df = df_columns(paired_df)
+    print("non_matching_synonyms")
     print(paired_df)
-    paired_df.to_csv("non_matching_synonyms.csv", index=False)
+    # paired_df.to_csv("non_matching_synonyms.csv", index=False)
+    return paired_df
 
 
 if __name__ == "__main__":
@@ -174,28 +207,16 @@ if __name__ == "__main__":
     parser.add_argument("--task", type=str, default=None, help="task name", metavar="")
     args = parser.parse_args()
 
-        
     data_dir = "src/data"
-    dp = DataPreprocessor(data_dir, include_npi=True)    
-    cols = [
-        "uid",
-        "fname",
-        "lname",
-        "fullname",
-        "npi",
-        "country",
-        "email",
-        "sap_no",
-        "qb_id",
-        "currency",
-        "category",
-        "org",
-    ]
-    if args.task == "matching_pairs_diff":
-        matching_pairs_diff()
-    elif args.task == "matching_pairs_synonyms":
-        matching_pairs_synonyms()
-    elif args.task == "non_matching_pairs_same_col":
-        non_matching_pairs_same_col()
-    elif args.task == "non_matching_synonyms":
-        non_matching_synonyms("edge_cases_split.csv")
+    dp = DataPreprocessor(data_dir, include_npi=True)
+
+    df = pd.concat(
+        [
+            matching_pairs_diff(),
+            matching_pairs_synonyms(),
+            non_matching_pairs_same_col(),
+            non_matching_synonyms("edge_cases_split.csv"),
+        ],
+        sort=False,
+    )
+    df.to_csv("master_1.csv", index=False)
