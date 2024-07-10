@@ -1,12 +1,15 @@
 import numpy as np 
-from src.modelling.model_evaluation import PenumbraEvaluation
+import os 
+
+import torch 
+from tqdm import tqdm
+
 import src.lib.deepmatcher as dm 
+from src.modelling.model_evaluation import PenumbraEvaluation
 from src.lib.deepmatcher.optim import SoftNLLLoss, Optimizer
 from src.lib.deepmatcher.runner import Runner, Statistics
 from src.lib.deepmatcher.data.iterator import MatchingIterator
 import src.utils.auto_config as config 
-import torch 
-from tqdm import tqdm
 
 
 class PenumbraModelTrainer:
@@ -29,6 +32,10 @@ class PenumbraModelTrainer:
         self.model_evaluator = PenumbraEvaluation()
         
     def train_model(self, df):
+        cache_file = os.path.join(config.DATA_DIR, 'train_cache0.pth')
+        if os.path.exists(cache_file):
+            os.remove(cache_file)
+
         pos_neg_ratio = np.sum(df['label'] == 1)/ np.sum(df['label'] == 0)
         print(f"pos_neg_ratio: {pos_neg_ratio}")
 
