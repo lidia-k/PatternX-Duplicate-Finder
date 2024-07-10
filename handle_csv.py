@@ -61,3 +61,15 @@ if __name__ == "__main__":
         data_dir = "src/data"
         dl = Neo4jDataLoader(data_dir)
         dl.export_results(filename="master.csv")
+
+    elif args.task == "matching-Manny_Perez":
+        q = """
+        MATCH (a), (b)
+        WHERE (a:Provider OR a:Speaker) AND (b:Provider OR b:Speaker)
+        AND (a.fullname ="Manny Perez" AND b.fullname="Manuel Perez-Izquierdo") AND NOT (a)-[]-(b)
+        CREATE (a)-[:r2_rf]->(b)
+        RETURN a, b
+        """
+        eb = EdgeBuilder()
+        result = eb.graph.query(q)
+        print("Created relationship: {}".format(len(result[0])))
