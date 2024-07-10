@@ -1,6 +1,8 @@
-import numpy as np 
-import src.lib.deepmatcher as dm 
 import os 
+import numpy as np 
+
+import src.lib.deepmatcher as dm 
+
 
 class ModelDeployer:
     _instance = None
