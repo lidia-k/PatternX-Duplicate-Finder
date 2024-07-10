@@ -227,8 +227,10 @@ if __name__ == "__main__":
     parser.add_argument("--task", type=str, default=None, help="task name", metavar="")
     args = parser.parse_args()
 
-    master_file = "master_edge_full_1.csv"
+    # master_file = "master_edge_full.csv"
     # master_file = "master_edge_balance.csv"
+    master_file = "master_edge_full_1.csv"
+    
 
     if args.task == "master-edge":
         data_dir = "src/data"
@@ -263,6 +265,8 @@ if __name__ == "__main__":
                 "rtable_fullname",
                 "ltable_lname",
                 "rtable_lname",
+                # "ltable_fname",
+                # "rtable_fname",
             ],
             inplace=True,
         )
