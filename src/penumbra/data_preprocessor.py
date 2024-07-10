@@ -109,8 +109,7 @@ class DataPreprocessor:
         
         paired_data = []
         for left, right in pairs:
-            left_dict = {
-                'ltable_' + col: val for col, val in left.items()}
+            left_dict = {'ltable_' + col: val for col, val in left.items()}
             right_dict = {'rtable_' + col: val for col, val in right.items()}
             paired_data.append({**left_dict, **right_dict})
 
@@ -152,8 +151,7 @@ class DataPreprocessor:
         pairs = [(df.iloc[i], df.iloc[j]) for i, j in combinations(range(len(df)), 2)]
         paired_data = []
         for left, right in pairs:
-            left_dict = {
-                'ltable_' + col: val for col, val in left.items()}
+            left_dict = {'ltable_' + col: val for col, val in left.items()}
             right_dict = {'rtable_' + col: val for col, val in right.items()}
             paired_data.append({**left_dict, **right_dict})
 
@@ -340,7 +338,7 @@ class DataPreprocessor:
         for prop in props:
             matching_q = f'''
             MATCH (a), (b)
-            WHERE a.{prop} = b.{prop} AND id(a) < id(b) AND NOT (a)-[]-(b)
+            WHERE a.{prop} = b.{prop} AND id(a) < id(b) AND NOT (a)-[]-(b) AND NOT a:Master AND NOT b:Master
             RETURN DISTINCT a, b
             '''
             matching_result = self.graph.cypher_transaction(matching_q)
@@ -348,7 +346,7 @@ class DataPreprocessor:
 
         non_matching_q = '''
         MATCH (a), (b)
-        WHERE a.email <> b.email AND a.sap_no <> b.sap_no AND id(a) < id(b) AND NOT (a)-[]-(b)
+        WHERE a.email <> b.email AND a.sap_no <> b.sap_no AND id(a) < id(b) AND NOT (a)-[]-(b) AND NOT a:Master AND NOT b:Master
         RETURN DISTINCT a, b
         LIMIT 14
         '''
