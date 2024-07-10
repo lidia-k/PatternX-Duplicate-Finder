@@ -194,6 +194,20 @@ class MagellanTrainer:
         eval_result = em.eval_matches(predictions, 'label', 'predicted')
         em.print_eval_summary(eval_result)
 
+        ppos_num = int(eval_result['pred_neg_num'])
+        fpos_num = int(eval_result['false_neg_num'])
+        tpos_num = ppos_num - fpos_num
+
+        pneg_num = int(eval_result['pred_pos_num'])
+        fneg_num = int(eval_result['false_pos_num'])
+        tneg_num = pneg_num - fneg_num
+        # TPR = TP/(TP + FN)
+        tpr = tpos_num / (tpos_num + fneg_num)
+        # TNR = TN/(FP + TN)
+        tnr = tneg_num / (fpos_num + tneg_num)
+        print(f"TPR = {tpos_num} / ({tpos_num} + {fneg_num}) = {tpr}")
+        print(f"TNR = {tneg_num} / ({fpos_num} + {tneg_num}) = {tnr}")
+
     def retrieve_feature_importance(self):
         importances = self.model.clf.feature_importances_
         feature_names = self.feature_table['feature_name'].values
