@@ -1,5 +1,7 @@
 import argparse
+import joblib
 import pandas as pd
+from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 from src.penumbra.training_magellan import MagellanTrainer
 from src.penumbra.utils import get_synonyms
@@ -230,7 +232,6 @@ if __name__ == "__main__":
     # master_file = "master_edge_full.csv"
     # master_file = "master_edge_balance.csv"
     master_file = "master_edge_full_1.csv"
-    
 
     if args.task == "master-edge":
         data_dir = "src/data"
@@ -252,8 +253,6 @@ if __name__ == "__main__":
         model = "rf"
         dp = DataPreprocessor(data_dir, include_npi=False, training=True)
         df = pd.read_csv(master_file)
-        print("Matching pairs: {}".format(len(df[df["label"] == 1])))
-        print("Non-matching pairs: {}".format(len(df[df["label"] == 0])))
         df.drop(
             columns=[
                 "type",
@@ -263,15 +262,26 @@ if __name__ == "__main__":
                 "rtable_npi",
                 "ltable_fullname",
                 "rtable_fullname",
-                "ltable_lname",
-                "rtable_lname",
+                # "ltable_lname",
+                # "rtable_lname",
                 # "ltable_fname",
                 # "rtable_fname",
             ],
             inplace=True,
         )
         df = shuffle(df, random_state=1).reset_index(drop=True)
-        ltable, rtable, data = dp._load_data(df)
+
+        training_df, predict_df = train_test_split(df, test_size=0.1, random_state=0)
+
+        print("1. predict_df")
+        print("Matching pairs: {}".format(len(predict_df[predict_df["label"] == 1])))
+        print("Non-matching pairs: {}".format(len(predict_df[predict_df["label"] == 0])))
+        print("2. training_df")
+        print("Matching pairs: {}".format(len(training_df[training_df["label"] == 1])))
+        print("Non-matching pairs: {}".format(len(training_df[training_df["label"] == 0])))
+        predict_df.to_csv(f"{master_file}_predict.csv", index=False)
+
+        ltable, rtable, data = dp._load_data(training_df)
         # ltable, rtable, data = dp.prepare_training_data(skewed_factor=2, size=args.size, model=model)
 
         mt = MagellanTrainer(ltable, rtable, data, model=model, training=True)
@@ -282,3 +292,19 @@ if __name__ == "__main__":
 
         print("Displaying feature importance...")
         mt.retrieve_feature_importance()
+
+    elif args.task == "predict":
+
+        data_dir = 'src/data'
+        model = joblib.load('model.pkl')
+        dp = DataPreprocessor(data_dir, include_npi=False)
+
+        df = pd.read_csv(f"{master_file}_predict.csv")
+        df["real_label"] = df["label"]
+        df.drop(columns=["label"], inplace=True)
+        print("df", df)
+
+        A, B, C = dp._load_data(df)
+
+        mt = MagellanTrainer(A, B, C, model)
+        preds = mt.predict(C, all=True)
