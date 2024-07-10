@@ -1,5 +1,7 @@
 import argparse
 import pandas as pd
+from sklearn.utils import shuffle
+from src.penumbra.training_magellan import MagellanTrainer
 from src.penumbra.utils import get_synonyms
 from src.penumbra import constants
 from src.penumbra.data_preprocessor import DataPreprocessor
@@ -96,6 +98,7 @@ def matching_pairs_synonyms():
     synonyms_df = df_columns(synonyms_df)
     print("matching_pairs_synonyms")
     print(synonyms_df)
+    # synonyms_df = synonyms_df.sample(n=800, random_state=1)
     # synonyms_df.to_csv("matching_pairs_synonyms.csv", index=False)
     return synonyms_df
 
@@ -200,6 +203,23 @@ def non_matching_synonyms(infile):
     return paired_df
 
 
+def non_matching_diff_name(limit=20000):
+    q = f"""
+    MATCH (a), (b) 
+    WHERE id(a) < id(b)
+    AND (a:Provider OR a:Speaker) AND (b:Provider OR b:Speaker)
+    AND NOT (a)-[]-(b) AND a.lname <> b.lname AND a.fname <> b.fname
+    RETURN a, b
+    LIMIT {limit}
+    """
+    result = dp.graph.cypher_transaction(q)
+    df = dp._create_df(result, label=0)
+    df["type"] = "non_matching_diff_name"
+    df = df_columns(df)
+    print(len(df))
+    return df
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run different functions based on input parameters."
@@ -207,16 +227,54 @@ if __name__ == "__main__":
     parser.add_argument("--task", type=str, default=None, help="task name", metavar="")
     args = parser.parse_args()
 
-    data_dir = "src/data"
-    dp = DataPreprocessor(data_dir, include_npi=True)
+    master_file = "master_edge_full_1.csv"
+    # master_file = "master_edge_balance.csv"
 
-    df = pd.concat(
-        [
-            matching_pairs_diff(),
-            matching_pairs_synonyms(),
-            non_matching_pairs_same_col(),
-            non_matching_synonyms("edge_cases_split.csv"),
-        ],
-        sort=False,
-    )
-    df.to_csv("master_1.csv", index=False)
+    if args.task == "master-edge":
+        data_dir = "src/data"
+        dp = DataPreprocessor(data_dir, include_npi=True)
+
+        df = pd.concat(
+            [
+                matching_pairs_diff(),
+                matching_pairs_synonyms(),
+                non_matching_pairs_same_col(),
+                non_matching_synonyms("edge_cases_split.csv"),
+                non_matching_diff_name(20000)
+            ],
+            sort=False,
+        )
+        df.to_csv(master_file, index=False)
+    elif args.task == "training":
+        data_dir = "src/data"
+        model = "rf"
+        dp = DataPreprocessor(data_dir, include_npi=False, training=True)
+        df = pd.read_csv(master_file)
+        print("Matching pairs: {}".format(len(df[df["label"] == 1])))
+        print("Non-matching pairs: {}".format(len(df[df["label"] == 0])))
+        df.drop(
+            columns=[
+                "type",
+                "ltable_uid",
+                "rtable_uid",
+                "ltable_npi",
+                "rtable_npi",
+                "ltable_fullname",
+                "rtable_fullname",
+                "ltable_lname",
+                "rtable_lname",
+            ],
+            inplace=True,
+        )
+        df = shuffle(df, random_state=1).reset_index(drop=True)
+        ltable, rtable, data = dp._load_data(df)
+        # ltable, rtable, data = dp.prepare_training_data(skewed_factor=2, size=args.size, model=model)
+
+        mt = MagellanTrainer(ltable, rtable, data, model=model, training=True)
+        mt.train_model()
+        print("Evaluating the model...")
+        preds = mt.predict()
+        mt.evaluate(preds)
+
+        print("Displaying feature importance...")
+        mt.retrieve_feature_importance()
