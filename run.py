@@ -67,6 +67,7 @@ if __name__ == '__main__':
         deployer = PenumbraModelDeployer()
         model = deployer.deploy_model(model_path=config.MODEL_DIR + 'model.pth')
         preds = deployer.predict('test2_dm.csv')
+        preds.to_csv('dm_preds2.csv', index=False)
         
     elif args.project == 'penumbra' and args.task == 'online_train':
         print(f"model name: {args.model} data file: {args.data}  online training...")
