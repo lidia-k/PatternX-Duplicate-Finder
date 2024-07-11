@@ -1,6 +1,8 @@
-import numpy as np 
-import src.lib.deepmatcher as dm 
 import os 
+import numpy as np 
+
+import src.lib.deepmatcher as dm 
+
 
 class ModelDeployer:
     _instance = None
@@ -21,21 +23,19 @@ class ModelDeployer:
         return ModelDeployer._instance.model.predict(data)
 
 class PenumbraModelDeployer(ModelDeployer):
-    @staticmethod
-    def deploy_model(model_path):
-        model = dm.MatchingModel(attr_summarizer='hybrid')
-        model.load_state(model_path)
-        PenumbraModelDeployer._instance.model = model
-        return PenumbraModelDeployer._instance
-    
-    @staticmethod
-    def predict(new_data_file_path):
+    model = None
+
+    def deploy_model(self, model_path):
+        self.model = dm.MatchingModel(attr_summarizer='hybrid')
+        self.model.load_state(model_path)
+
+    def predict(self, new_data_file_path):
         candidate = dm.data.process_unlabeled(
                                     path=os.path.join(new_data_file_path),
-                                    trained_model=PenumbraModelDeployer._instance.model,
+                                    trained_model=self.model,
                                     ignore_columns=('ltable_id', 'rtable_id', 'label'))
         print(candidate.get_raw_table().columns)                                
-        predictions = PenumbraModelDeployer._instance.model.run_prediction(candidate, output_attributes=list(candidate.get_raw_table().columns))
+        predictions = self.model.run_prediction(candidate, output_attributes=list(candidate.get_raw_table().columns))
         predictions = predictions.rename(columns={"match_score":"confident"})
         threshold = 0.8
         predictions['is_matched'] = np.where(predictions['confident'] > threshold, 1, 0)

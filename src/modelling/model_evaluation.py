@@ -1,12 +1,8 @@
 import src.lib.deepmatcher as dm
 import src.utils.auto_config as config 
 
-class EvaluationStrategy:
-    def evaluate(self, model, data):
-        pass
 
-
-class PenumbraEvaluation(EvaluationStrategy):
+class PenumbraEvaluation:
     def evaluate(self, model, data):
         return model.run_eval(data)
     

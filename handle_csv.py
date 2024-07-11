@@ -1,6 +1,7 @@
 # check predictions_RandomForestClassifier_all.csv file
 
 import argparse
+import numpy as np
 import pandas as pd
 
 from src.penumbra.edge_builder import EdgeBuilder
@@ -13,6 +14,7 @@ if __name__ == "__main__":
         description="Run different functions based on input parameters."
     )
     parser.add_argument("--task", type=str, default=None, help="task name", metavar="")
+    parser.add_argument("--file_path", type=str, default=None, help="task name", metavar="")
     args = parser.parse_args()
 
     if args.task == "match-firstlast-name":
@@ -61,3 +63,39 @@ if __name__ == "__main__":
         data_dir = "src/data"
         dl = Neo4jDataLoader(data_dir)
         dl.export_results(filename="master.csv")
+    
+    elif args.task == "split" and args.file_path is not None:
+        df = pd.read_csv(f'{args.file_path}.csv')
+
+        all_columns = df.columns
+
+        # Separate left and right table columns
+        left_columns = [col for col in all_columns if col.startswith('ltable_')]
+        right_columns = [col for col in all_columns if col.startswith('rtable_')]
+
+        # Create new dataframes for left and right tables
+        df_left = df[left_columns].copy()
+        df_right = df[right_columns].copy()
+
+        # Rename columns to remove prefixes
+        df_left.columns = [col.replace('ltable_', '') for col in df_left.columns]
+        df_right.columns = [col.replace('rtable_', '') for col in df_right.columns]
+
+        if 'is_matched' in df.columns:
+            df_left['is_matched'] = df['is_matched']
+            df_right['is_matched'] = df['is_matched']
+
+        # Create a new DataFrame to store the result
+        df_result = pd.DataFrame()
+        for i in range(len(df)):
+            df_result = pd.concat([df_result, df_left.iloc[[i]], df_right.iloc[[i]]], ignore_index=True)
+        
+        if 'is_matched' in df.columns:
+            group_id = np.repeat(np.arange(len(df)), 2)
+            df_result['group_id'] = group_id
+            df_result = df_result.sort_values(['is_matched', 'group_id'], ascending=[False, True])
+
+        # Save the result to a new CSV file
+        df_result.to_csv(f'{args.file_path}_split.csv', index=False, encoding='utf-8-sig')
+        print("File has been split and saved")
+

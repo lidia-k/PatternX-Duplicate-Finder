@@ -54,26 +54,20 @@ if __name__ == '__main__':
         duplicate_finder.extract_distance_between_pairs([765, 10001, 10002], prompt=size_prompt, English=True)
     elif args.project == 'penumbra' and args.task == 'train':
         print("training...")
-        data_dir = '/Users/tu/SourceCode/notebooks/data/'
-        file = "hcp-manz-sn.xlsx"
-        dc = PenumbraDataCollector(data_dir, file)
-        dc.collect_data()
 
-        df_dict = dc.df_dict
-
-        A, B = dc.build_data_pair(
-            items_in_A=[df_dict['(1000) Contacts']], 
-            items_in_B=[df_dict['(800) No SAP Number and Export '], df_dict['(340) US HCPs'], df_dict['(320) OUS HCPs'], df_dict['(20) France HCPs']]
-        )
-
-        p =  PenumbraDataPreprocessor()
-        A, B = p.preprocess_data(data = (A, B) ) 
-
-        fe = PenumbraFeatureEnginner("blocking")
-        df = fe.execute_strategy(A, B, fe.blocking_config)
+        print('Preparing training data with{} NPI...'.format('' if args.npi else 'out'))
+        data_dir = 'src/data'
+        dp = DataPreprocessor(data_dir, include_npi=args.npi, training=True, include_synonyms=args.synonym)
+        _, _, data = dp.prepare_training_data(skewed_factor=2, size=args.size, model=args.m_model)
         
         trainer = PenumbraModelTrainer()
-        model = trainer.train_model(df)
+        model = trainer.train_model(data)
+    
+    elif args.project == 'penumbra' and args.task == 'dm_test':
+        deployer = PenumbraModelDeployer()
+        model = deployer.deploy_model(model_path=config.MODEL_DIR + 'model.pth')
+        preds = deployer.predict('test2_dm.csv')
+        preds.to_csv('dm_preds2.csv', index=False)
         
     elif args.project == 'penumbra' and args.task == 'online_train':
         print(f"model name: {args.model} data file: {args.data}  online training...")
@@ -238,7 +232,6 @@ if __name__ == '__main__':
         print(f'Running the test 1 for {args.m_model}')
 
         data_dir = 'src/data'
-        model = joblib.load('model.pkl')
 
         data = pd.read_csv('dropped.csv')
         data.drop(columns=['label'], inplace=True)
@@ -253,6 +246,7 @@ if __name__ == '__main__':
         A, B, C = dp._load_data(df)
 
         print('Running predictions on the label 0 test data with{} NPI...'.format('' if include_npi else 'out'))
+        model = joblib.load('model.pkl')
         mt = MagellanTrainer(A, B, C, model)
         preds = mt.predict(C)
         print(f'False negatives: {(preds["predicted"] == 1).sum()} (out of {len(preds)} negative predictions)')

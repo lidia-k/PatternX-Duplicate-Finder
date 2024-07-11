@@ -6,7 +6,7 @@ f_pos = [
     ('po_co_342', 'po_co_928'), ('po_no_171', 'po_no_486'), ('po_co_319', 'po_no_490'),
     ('po_no_400', 'po_no_401'), ('po_no_481', 'po_no_485'), ('po_no_677', 'po_no_681'),
     ('po_no_331', 'po_no_413'), ('po_no_413', 'po_no_197'), ('po_no_114', 'po_no_133'),
-    ('po_no_114', 'po_no_129')
+    ('po_no_114', 'po_no_129'), ("po_no_560", "po_co_442")
 ]
 
 # false negative from rf-predict-all

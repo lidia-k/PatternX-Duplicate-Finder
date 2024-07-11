@@ -1,4 +1,5 @@
 import os
+import random
 from itertools import combinations
 
 import py_entitymatching as em
@@ -82,11 +83,52 @@ class DataPreprocessor:
 
     def _build_non_matching_pairs(self, limit):
         """
+        Get one node from each cluster and all the singleton nodes to create non-matching pairs.  
+        """
+        q = '''
+        MATCH (master:Master)-[:master]-(node)
+        WHERE NOT node:Master
+        WITH master, collect(node) AS nodes
+        RETURN master, nodes[toInteger(rand() * size(nodes))] AS randomNode
+        '''
+        result = self.graph.cypher_transaction(q)
+        df = pd.DataFrame([dict(record[1]) for record in result])
+
+        dropped_cols = []
+        if self.training:
+            dropped_cols.append('uid')
+        if not self.include_npi:
+            dropped_cols.append('npi')
+        df.drop(columns=dropped_cols, inplace=True)
+
+        pairs = []
+        while len(pairs) < limit:
+            i, j = random.sample(range(len(df)), 2)
+            pairs.append((df.iloc[i], df.iloc[j]))
+        pairs = pairs[:limit]
+        
+        paired_data = []
+        for left, right in pairs:
+            left_dict = {'ltable_' + col: val for col, val in left.items()}
+            right_dict = {'rtable_' + col: val for col, val in right.items()}
+            paired_data.append({**left_dict, **right_dict})
+
+        paired_df = pd.DataFrame(paired_data)
+        self._handle_int_cols(paired_df)
+        paired_df['label'] = 0
+
+        sample_df = paired_df.sample(n=limit, random_state=1)        
+        dropped_df = paired_df.drop(sample_df.index)
+        print(f'The number of non-matching pairs:', len(sample_df))
+        return sample_df, dropped_df
+
+    def _build_non_matching_npi_pairs(self, limit):
+        """
         For nodes that have different npis, create a non-matching pair.
         """
         base_q = f'''
         MATCH (n)
-        WHERE n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())
+        WHERE NOT n:Master AND n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())
         '''
         syn_c = ''
         if not self.include_synonyms:
@@ -109,8 +151,7 @@ class DataPreprocessor:
         pairs = [(df.iloc[i], df.iloc[j]) for i, j in combinations(range(len(df)), 2)]
         paired_data = []
         for left, right in pairs:
-            left_dict = {
-                'ltable_' + col: val for col, val in left.items()}
+            left_dict = {'ltable_' + col: val for col, val in left.items()}
             right_dict = {'rtable_' + col: val for col, val in right.items()}
             paired_data.append({**left_dict, **right_dict})
 
@@ -168,7 +209,7 @@ class DataPreprocessor:
         df['id'] = df.index
         df['ltable_id'] = df['id']
         df['rtable_id'] = df['id']
-        df.to_csv('C.csv', index=False)
+        df.to_csv('C.csv', index=False, encoding='utf-8-sig')
 
         ltable_cols = [col for col in df.columns if 'ltable_' in col]
         rtable_cols = [col for col in df.columns if 'rtable_' in col]
@@ -176,12 +217,12 @@ class DataPreprocessor:
         A = df[ltable_cols]
         A.columns = [col.replace('ltable_', '') for col in ltable_cols]
         A = A.rename(columns={'id': 'ltable_id'})
-        A.to_csv('A.csv', index=False)
+        A.to_csv('A.csv', index=False, encoding='utf-8-sig')
 
         B = df[rtable_cols]
         B.columns = [col.replace('rtable_', '') for col in rtable_cols]
         B = B.rename(columns={'id': 'rtable_id'})
-        B.to_csv('B.csv', index=False)
+        B.to_csv('B.csv', index=False, encoding='utf-8-sig')
     
     def _load_data(self, df):
         self._split_tables(df)
@@ -263,26 +304,26 @@ class DataPreprocessor:
         Label the pairs as matching or non-matching and prepare the training data. 
         """
         matching_df = self._build_matching_pairs(size)
+        print(f'The number of matching pairs:', len(matching_df))
         #feedback_df = self._add_feedback_pairs()
         #matching_df = pd.concat([matching_df, feedback_df], sort=False)
 
         limit = len(matching_df) * skewed_factor
-        non_matching_df, dropped_df = self._build_non_matching_pairs(limit=limit)
+        non_matching_df, dropped_df = self._build_non_matching_npi_pairs(limit=limit)
         matching_df = matching_df[non_matching_df.columns]
 
         # Split the first 46 rows for the test case 2
         df_46 = matching_df.loc[:46, :]
         matching_df = matching_df.loc[46:, :]
-        print(f'The number of matching pairs:', len(matching_df))
 
         combined_df = pd.concat([matching_df, non_matching_df], sort=False)
         combined_df = self._drop_high_missing_features(combined_df)
-
+        
         # Prepare and save the test data
         test_dfs = {'46.csv': df_46, 'dropped.csv': dropped_df}
         for filename, test_df in test_dfs.items():
             self._prepare_test_data(test_df, combined_df.columns, filename)
-
+    
         return self._load_data(combined_df)
     
     def prepare_test2_data(self):
@@ -297,7 +338,7 @@ class DataPreprocessor:
         for prop in props:
             matching_q = f'''
             MATCH (a), (b)
-            WHERE a.{prop} = b.{prop} AND id(a) < id(b) AND NOT (a)-[]-(b)
+            WHERE a.{prop} = b.{prop} AND id(a) < id(b) AND NOT (a)-[]-(b) AND NOT a:Master AND NOT b:Master
             RETURN DISTINCT a, b
             '''
             matching_result = self.graph.cypher_transaction(matching_q)
@@ -305,7 +346,7 @@ class DataPreprocessor:
 
         non_matching_q = '''
         MATCH (a), (b)
-        WHERE a.email <> b.email AND a.sap_no <> b.sap_no AND id(a) < id(b) AND NOT (a)-[]-(b)
+        WHERE a.email <> b.email AND a.sap_no <> b.sap_no AND id(a) < id(b) AND NOT (a)-[]-(b) AND NOT a:Master AND NOT b:Master
         RETURN DISTINCT a, b
         LIMIT 14
         '''
