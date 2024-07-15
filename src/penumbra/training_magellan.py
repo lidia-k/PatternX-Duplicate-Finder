@@ -194,12 +194,12 @@ class MagellanTrainer:
         eval_result = em.eval_matches(predictions, 'label', 'predicted')
         em.print_eval_summary(eval_result)
 
-        ppos_num = int(eval_result['pred_neg_num'])
-        fpos_num = int(eval_result['false_neg_num'])
+        ppos_num = int(eval_result['pred_pos_num'])
+        fpos_num = int(eval_result['false_pos_num'])
         tpos_num = ppos_num - fpos_num
 
-        pneg_num = int(eval_result['pred_pos_num'])
-        fneg_num = int(eval_result['false_pos_num'])
+        pneg_num = int(eval_result['pred_neg_num'])
+        fneg_num = int(eval_result['false_neg_num'])
         tneg_num = pneg_num - fneg_num
         # TPR = TP/(TP + FN)
         tpr = tpos_num / (tpos_num + fneg_num)
