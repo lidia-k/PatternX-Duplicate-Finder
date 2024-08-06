@@ -1,6 +1,7 @@
 #==============================================================================
 # usage :  > conda activate py37;  
 #          > python37 thisfile.py --task ditto-pairs --project penumbra
+#          > python37 thisfile.py --task uid2ditto --project penumbra
 #          > python37 thisfile.py --task train-ditto --load_ckp --save_model ---n_epoch 4 --size 32 --project penumbra
 #          > python37 thisfile.py --task forward-L   --load_ckp                                     --project penumbra
 #          > python37 thisfile.py --task forward-noL --load_ckp                                     --project penumbra
@@ -19,18 +20,21 @@
 #          move hard-coded dok dictionary to constants.py 
 #          turn dok on/off by command line arg --dok.  currently --dok has no action.
 # bitchy:  stuff that's wrong with Ditto.
-#          confusing names: 
-#          . <xx_set> means xx_path, 'size' means clip the data set, 'iter' means loader
-#          . validation is called Test when printed
-#          train & evaluate:
-#          . best_f1 should not be decreasing, should not use Test set
-#          hard to save & load model -- compare original train() with my 
-#          . new ditto.py functions save_checkpoint() and load_model()
+#          1. confusing names: 
+#          .  <xx_set> means xx_path, 'size' means clip the data set, 'iter' means loader
+#          .  validation is called Test when printed
+#          2. train & evaluate:
+#          .  best_f1 should not be decreasing, should not use Test set
+#          3. hard to save & load model -- compare original train() with my 
+#          .  new ditto.py functions save_checkpoint() and load_model()
 # changed:  run.py, 
-# files     src/data/data_prepocessor.py moved DataPreprocessor into run-xxx.py
+# files     src/data/dataprep.py moved DataPreprocessor into run-xxx.py
+#           src/preprocessing/dataprep.py
 #           src/DG_penumbra/constants.py (RENAME_COLS), 
-#           ditto_light/ditto.py (huggingface model/user_agent/token)
-#           ditto_light/dataset.py.    size --> clipdaet, __init
+#           dupsie/ditto/ditto_light/ditto.py (huggingface model/user_agent/token)
+#           dupsie/ditto/ditto_light/dataset.py.    size --> clipdaet, __init
+# related:  
+# files
 #
 # done  :  why does the f1 change with each run of the same prams???
 #          learns wayyy to fast -- fishy.  len(trainset) is 16 !?!
@@ -57,13 +61,15 @@
 import argparse, joblib, sys, pdb, os, time, torch
 sys.path.append(   '/home/snguyen/norm/dupsie/ditto' )
 sys.path.insert(0, "/home/snguyen/norm/dupsie/apex") 
-import numpy as np, pandas as pd, math               # math for floor() function
+import numpy as np, pandas as pd, math   # math for floor() function
 from sklearn.utils import shuffle
 from src.DF_penumbra import constants;
 import ditto_light.dataset   as dida     # normal training.  use labels
 import ditto_light.ditto     as didi     # good load_state_dict(), skips test.txt, best_f1 is monotonic
 import src.preprocessing.dataprep as dataprep
-dadi = "src/data"  #sn
+dadi = "src/data"; seed = 42;            # to make reproducible results, set all random # generators to 42
+random.seed( seed );       np.random.seed( seed ); 
+torch.manual_seed( seed ); torch.cuda.manual_seed_all( seed )
 
 #==============================================================================
 #                           helper functions
@@ -75,7 +81,7 @@ dadi = "src/data"  #sn
 #         when label = False, the dummy lable will simply be ignored.
 def add_dummy_label( infile=None, outfile=None, label=-1 ):
     with open( infile       ) as f:  lines = f.read().splitlines()
-    with open( outfile, "w" ) as f:  f.writelines([ f"{i.rstrip()} \t {label}\n" for i in lines ])
+    with open( outfile, "w" ) as f:  f.writelines([ f"{i.rstrip()}\t{label}\n" for i in lines ])
     return outfile
 
 # intent:  prepare a model and dataloader to be used in a forward pass
@@ -87,44 +93,24 @@ def preForward( path ):
     ,         shuffle=False, num_workers=0, collate_fn=inDaet.pad ) 
     return  model, dloader
 
-# intent:  break a line containing a pair into 2 lines for easier comparison by a human
-# input :  ex:  col fname val john ... \t col fname val johnathon ... \t 1   (line #4 in file)
-# output:       4 1 col fname val john      ...
-#               4 1 col fname val johnathan ...
-def pair2single( infile, outfile ):
-    label = ''; segments = []; lines = []; lostr = ''; i = 0
-    with open( infile       ) as f:  lines = f.read().splitlines()
-    for line in lines:
-        segments = line.split('/t')
-        label = segments[2] if len(segments) == 3 else ''
-        lostr.append( str(i) + label + ' ' + segments[0].strip() ) 
-        lostr.append( str(i) + label + ' ' + segments[1].strip() )
-        i = i + 1
-    with open( outfile, "w" ) as f:  f.writelines( [ s + '\n' for s in lostr ] )
-    return outfile
-
-# intent: convert a single node (not pair) in ditto format to csv
-# input : file with lines like this
-#         COL fname VAL [PERSON] Evans [/PERSON]  ... COL sap_no VAL [ID] 90358207 [/ID] COL id VAL 94
-# output: csv file with lines like this
-#         fname,.., sap_no, id
-#         Evans,.., 90358207, 94
-#a COL fname VAL john COL ... --> xxx = [ fname VAL john, lname VAL smith,..]
-#b pop: remove "i -1" from list
-def single2csv( infile, outfile ):
-    cnames = []; values = []; xxx = []; body = []
-    with open( infile ) as f:  lines = f.read().splitlines()
-
-    xxx    = lines[0].split('COL ')                    #a
-    cnames = [ s.split(' VAL ')[0]  for s in xxx ];
-    cnames.pop(0);  body[0] = ",".join( cnames )       #b                              # header line
-
-    for line in lines:
-        xxx    = line.split('COL ')                         # xxx = [ fname VAL john, lname VAL smith,..]
-        xxx.pop(0)                                          # remove "# -1"
-        values = [ s.split(' VAL ')[1]  for s in xxx ];  cnames.pop(0);
-        body.append( ','.join( values ) )
-    with open("outfile", "w") as f:  f.writelines([ f"{i}\n" for i in body ])
+#a if lname replacement is executed first, then fullname executed, we get
+#     "fullname" --> "fullast name"
+#  therefore fullname replacement must come first
+def nicenames( inpath, outpath ):
+   outlos = []
+   with open( inpath ) as f:  lines = f.read().splitlines()
+   for line in lines:
+        line = line.replace( 'fname'      , 'first name' )
+        line = line.replace( 'fullname'   , 'full name' )       #a
+        line = line.replace( 'lname'      , 'last name' )       #a
+        line = line.replace( 'lic_state'  , 'state license' )
+        line = line.replace( 'org_type'   , 'organization type' )
+        line = line.replace( 'state1'     , 'state' )
+        line = line.replace( 'payments_to', 'payments to' )
+        line = line.replace( 'qb_id'      , 'Quickbase id' )
+        line = line.replace( 'npi'        , 'national provider id' )
+        outlos.append( line )
+   with open( outpath, "w") as f:  f.writelines([ f"{i}\n" for i in outlos ])
 
 #==============================================================================
 #                                 args
@@ -153,9 +139,9 @@ if __name__ == '__main__':
     parser.add_argument("--dok"       , type=str, default=None)    #sn was --dk
     parser.add_argument("--summarize" , dest="summarize", action="store_true")
     parser.add_argument("--size"      , type=int, default=256)     #sn superceded in some places by clipdaet.  i haven't found all occurences of "size" to replace with "clipdaet"
-    parser.add_argument("--batch_size", type=int, default=40)      #sn was 512
-    parser.add_argument("--clipdaet"  , type=int, default=1000)
-    parser.add_argument("--load_ckp"  , type=str, default='checkpoint/model.pt', nargs='?', help="provide the path to xxx.pt file")
+    parser.add_argument("--batch_size", type=int, default=20)      #sn was 512.  batch 30 would cause cuda out of memory error in forward() when bert(x1)[0][:,:,:]
+    parser.add_argument("--clipdaet"  , type=int, default=15000)
+    parser.add_argument("--load_ckp"  , type=str, nargs='?', help="provide the path to xxx.pt file")  # default='checkpoint/model.pt'
     parser.add_argument('--ckfile'    , type=str, default='model.pt', help='path to the model.pt file')
     args = parser.parse_args()
 
@@ -168,31 +154,54 @@ testpath  = dadi +  '/test.txt'
 #==============================================================================
 
 #m without labels, yorf means yhat
-if args.task == 'forward-noL' and args.project == 'penumbra':                                # forward pass on unlabeled data
-    inPath = add_dummy_label( dadi + '/manual-t2-ditto.txt', dadi + '/manual-t2-dummyL.txt'   ) 
+if args.task == 'forward-noL' and args.project == 'penumbra':                               # forward pass on unlabeled data
+#    inPath = add_dummy_label( dadi + '/manual-t2-ditto.txt', dadi + '/manual-t2-dummyL.txt'   ) 
+    inPath = dadi + '/npi-x-npi-ditto.txt'
     model  , dloader = preForward( inPath )
-    yorf   , all_probs, all_y, yhat = didi.forwardSN( model, dloader, .95, label=False )    # yorf is yhat
+    all_probs, all_y, yhat, yora = didi.forwardSN( model, dloader, .95, label=False )    # yorf is yhat
+    # print result
+    txtPath = dadi + '/junk.txt';  dataprep.pair2single( inPath, txtPath )
+    csvPath = dadi + '/junk.csv';  dataprep.single2csv( txtPath, csvPath )
+    with open( csvPath ) as f:  lines = f.read().splitlines()
+    lines.pop(0)                                                                            # remove header line
+    pdb.set_trace()
+    for i in range( len(yora) ):
+        print( f'{yora[i]}, {lines[2*i]} \n{yora[i]}, {lines[2*i + 1]} \n' )
+    
+if args.task == 'uid2ditto' and args.project == 'penumbra':
+    f1 = dadi + '/npi-x-npi.txt'; f2 = dadi + '/npi-x-npi-ditto.txt'; f3 = f2
+    # f1 = dadi + '/junk1.txt'; f2 = dadi + '/junk2.txt'; f3 = dadi + '/junk3.txt'
+    dprep = dataprep.DataPreprocessor( data_dir = dadi, args = None )
+    dittoL = dprep.uids2nodes( f1, f2 )
+    nicenames( f2, f3 )
 
-#n with labels, yorf means f1
-elif args.task == 'forward-L' and args.project == 'penumbra':                               # test on LABELED data
-    model, dloader = preForward( dadi + '/van1k.txt' )
-    yorf , all_probs, all_y, yhat = didi.forwardSN( model, dloader, .95, label=True )       #n
-    print( f'run.py yorf = {yorf} \nyhat = {yhat}' )
-    # count the # of 1's in yorf:  xx =[i for i in yorf if i == 1];  len(xx)
+# rename columns, eg. fname --> first name
+elif args.task == 'nice-names' and args.project == 'penumbra':                               # forward pass on unlabeled data
+    inpath  = dadi + '/manual-t2-dummyL.txt'; outlos = []
+    outpath = dadi + '/manual-t2-dummy-nice.txt'
+    nicenames( inpath, outpath )
 
 elif args.project == 'penumbra' and args.task == 'synoname': dp.create_synoname_nodes()
 
+#n with labels, yorf means f1
+elif args.task == 'forward-L' and args.project == 'penumbra':                               # test on LABELED data
+    model, dloader = preForward( dadi + '/npi-x-npi-ditto.txt' )
+    all_probs, all_y, yhat, yora = didi.forwardSN( model, dloader, .95, label=True )       #n
+    pdb.set_trace()
+    # print( f'run.py yorf = {yorf} \nyhat = {yhat}' )
+    # count the # of 1's in yorf:  xx =[i for i in yorf if i == 1];  len(xx)
+
 #o create ditto pairs
-elif args.project == 'penumbra' and args.task == 'ditto-pairs':           #sn  added elif-ditto section
+elif args.project == 'penumbra' and args.task == 'ditto-pairs':                             #sn  added elif-ditto section
     if not( os.path.isfile ( trainpath ) and  os.path.isfile ( testpath ) and os.path.isfile ( validpath ) ):
         print( 'making vatt.txt data files ...' )
         def writelist( path, los ):
             with open( path, "w" ) as fh:
                 for line in los: fh.write( f"{line}\n" )
         dp = dataprep.DataPreprocessor( dadi, args )                               # lidia's src/DF_penumbra/data_preprocessor.py
-        ltable, rtable, data = dp.prepare_ditto_data( skewed_factor=.5 )  # fetch from database into dataframe
+        ltable, rtable, data = dp.prepare_ditto_data( skewed_factor=.5 )           # fetch from database into dataframe
         start_time = time.strftime("%Y%m%d-%H%M%S");   print( "gel2ditto()  start = "  + start_time );
-        dok                  = { "PERSON" : [ 'first name', 'last name', 'fname']
+        dok                  = { "PERSON" : [ 'first name', 'last name', 'full name' ]
         ,                        "ID"     : ['national provider id', 'sap_no', 'Quickbase id'] }
         lostring             = dp.gel2ditto( ltable, rtable, data, 'luid', 'ruid', dok, 'id', 'label' )
         print( "gel2ditto()  end   = "  + time.strftime("%Y%m%d-%H%M%S") )
@@ -202,9 +211,9 @@ elif args.project == 'penumbra' and args.task == 'ditto-pairs':           #sn  a
 
 # copied code from train_ditto.py:
 # sn name changes:      trainset --> trainpath.        train_dataset --> traindaet
-elif args.project == 'penumbra' and args.task == 'train-ditto':    #sn  added elif-ditto section
-    runtag    = '%s_lm=%s_da=%s_dk=%s_su=%s_clipdaet=%s_id=%d' % ( args.task, args.lm, 
-        args.da, args.dk, args.summarize, str(args.clipdaet), args.run_id )
+elif args.project == 'penumbra' and args.task == 'train-ditto':                      #sn  added elif-ditto section
+    runtag    = '%s_lm=%s_da=%s_dok=%s_su=%s_clipdaet=%s_id=%d' % ( args.task, args.lm, 
+        args.da, args.dok, args.summarize, str(args.clipdaet), args.run_id )
     runtag    = runtag.replace('/', '_')
     traindaet = dida.DittoDataset( trainpath, lm=args.lm, max_len=args.max_len, clipdaet=args.clipdaet, da=args.da )
     validdaet = dida.DittoDataset( validpath, lm=args.lm, clipdaet=args.clipdaet )   #sn validdaet.pairs[1] is plain text
@@ -216,33 +225,6 @@ elif args.project == 'penumbra' and args.task == 'train-ditto':    #sn  added el
 else: print( 'did nothing' )
 
 """
-# this is the version w/o --dok, eg. no surrounding [PERSON] tag
-def gel2ditto( ltable: pd.DataFrame, rtable: pd.DataFrame, data: pd.DataFrame,
-    lfokn, rfokn, c_data_id_name="id", c_label_name="label", ) -> list:       #b
-    new_ltable = ltable.set_index(lfokn); new_rtable = rtable.set_index(rfokn)
-    # ----
-    def formatted_string(row):      # formatted_string column
-      lvalue  = []; rvalue = []
-      l_rows  = new_ltable.loc[row[lfokn]]
-      r_rows  = new_rtable.loc[row[rfokn]]
-      l_row   = l_rows.iloc[0] if isinstance(l_rows, pd.DataFrame) else l_rows
-      r_row   = r_rows.iloc[0] if isinstance(r_rows, pd.DataFrame) else r_rows
-
-      lvalue0 = [f"COL {col} VAL {l_row[col]}" for col in left_columns]
-      rvalue0 = [f"COL {col} VAL {r_row[col]}" for col in right_columns]
-
-      col_id  =  f"COL id VAL {row[c_data_id_name]}"
-      for segment in lvalue0:  lvalue.append( segment.replace('\t','').replace('\n','') )
-      for segment in rvalue0:  rvalue.append( segment.replace('\t','').replace('\n','') )
-      return f"{' '.join(lvalue)} {col_id} \t {' '.join(rvalue)} {col_id} \t {row[c_label_name]}"
-    # ----
-    left_columns  = list(ltable);   left_columns.remove(lfokn)  #a
-    right_columns = list(rtable);  right_columns.remove(rfokn)
-    df_combined   = data.copy()
-    df_combined[ "formatted_string"] = df_combined.apply( formatted_string, axis=1 )
-    return df_combined["formatted_string"].tolist()
-
-
 #                              experiment log
 # maxlen  size  batchsize epocs  lrate
 #  256     256        512   100   3e-5  step: 0, loss: 0.6949014067649841   epoch 100: dev_f1=0.11764705882352941, f1=0.47619047619047616, best_f1=0.47619047619047616
