@@ -118,3 +118,33 @@ class Neo4jDataLoader:
         for f in data_bundles:
             fname = self._prepare_csv_file(f)
             self._load_data_from_cypher(fname)
+
+    def import_human_labeled(self, infile):
+        df = pd.read_csv(infile)
+        df.replace("-", np.nan, inplace=True)
+        relation_df = df[df["group"].notna()]
+        driver = self.graph.get_driver()
+        with driver.session() as session:
+            # remove r0_mix
+            session.run("MATCH ()-[r:r0_mix]->() DELETE r")
+            # label 1 (x) pair
+            label1_pairs = []
+            grouped = relation_df.groupby("group")
+            for group, group_df in grouped:
+                uids = group_df["uid"].dropna().unique()
+                new_group_df = group_df.set_index("uid", drop=False)
+                for i in range(len(uids)):
+                    for j in range(i + 1, len(uids)):
+                        left = new_group_df.loc[uids[i]]
+                        right = new_group_df.loc[uids[j]]
+                        if left["match"] == "x" and right["match"] == "x":
+                            result = session.run(
+                                f"""MATCH (a), (b)
+                                WHERE (a:Provider OR a:Speaker) AND (b:Provider OR b:Speaker)
+                                    AND a.uid='{uids[i]}' AND b.uid='{uids[j]}'
+                                CREATE (a)-[:r0_mix]->(b)
+                                RETURN a, b"""
+                            )
+                            label1_pairs.append([left.to_dict(), right.to_dict()])
+        driver.close()
+        return label1_pairs

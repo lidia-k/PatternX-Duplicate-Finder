@@ -86,10 +86,10 @@ class DataPreprocessor:
         ldaf  = ldaf.rename( columns={'uid':'luid'} ) 
         rdaf  = rdaf.rename( columns={'uid':'ruid'} )
         # drop columns
-        ldaf  = ldaf.drop( 'text', axis=1 ); ldaf = ldaf.drop( 'embedding', axis=1 );
-        rdaf  = rdaf.drop( 'text', axis=1 ); rdaf = rdaf.drop( 'embedding', axis=1 );
-        ldaf  = ldaf.drop(  'npi', axis=1 )  if self.args.npi == False else ldaf
-        rdaf  = rdaf.drop(  'npi', axis=1 )  if self.args.npi == False else rdaf
+        ldaf  = ldaf.drop( 'text', axis=1, errors="ignore" ); ldaf = ldaf.drop( 'embedding', axis=1 , errors="ignore");
+        rdaf  = rdaf.drop( 'text', axis=1, errors="ignore" ); rdaf = rdaf.drop( 'embedding', axis=1 , errors="ignore");
+        ldaf  = ldaf.drop(  'npi', axis=1, errors="ignore" )  if self.args.npi == False else ldaf
+        rdaf  = rdaf.drop(  'npi', axis=1, errors="ignore" )  if self.args.npi == False else rdaf
         # int columns.  uid's, label
         ldaf  = process_int_cols( ldaf, constants.INT_COLS);  ldaf = ldaf.replace( 0, np.nan );
         rdaf  = process_int_cols( rdaf, constants.INT_COLS);  rdaf = rdaf.replace( 0, np.nan );
@@ -100,7 +100,7 @@ class DataPreprocessor:
     # Label the pairs as matching or non-matching and prepare the training data. 
     # build_*() functions adds column prefix "xtable_"
     def prepare_ditto_data(self, skewed_factor):
-        A1,B1,C1   = self._build_matching_pairs();
+        A1,B1,C1 = self._build_matching_pairs();
         limit      = 200 #sn math.floor( len(C1) * skewed_factor )
         A0,B0,C0   = self._build_non_matching_pairs( limit=limit )
         A1 = A1[ A0.columns ]; A = pd.concat( [A1, A0] );   # matchDaf    = matchDaf[ mismatchDaf.columns ]
@@ -138,7 +138,7 @@ class DataPreprocessor:
 
     def _build_non_matching_pairs(self, limit):  # For nodes that have different npis, create a non-matching pair.
         #1
-        query  = f'''MATCH (n) WHERE NOT n:Master AND n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-())  RETURN n limit {limit}''' #f
+        query  = f'''MATCH (n) WHERE NOT n:Master AND n.npi IS NOT NULL AND NOT EXISTS ((n)-[:r1_npi]-()) RETURN n limit {limit}''' #f
         result = self.graph.cypher_transaction( query )                       # result is a 2d-array with 2nd coord always 0
         result = [ result[i][0] for i in range(len(result)) ]                 # change to a 1d-array  #g
         #2
@@ -186,7 +186,7 @@ class DataPreprocessor:
         new_dk = {value: key.upper() for key, values in dok.items() for value in values} #c
         # ----
         def surround( col, value, kod ):      # surround "value" with tag given by "kod", eg [ID] 1234 [/ID].
-            return "[" + kod[col] + "] " + value + " [/" + kod[col] + "]" if (col in kod) else value
+            return "[" + kod[col] + "] " + str(value) + " [/" + kod[col] + "]" if (col in kod) else value
         def formatted_string(row):      # formatted_string column
           lvalue  = []; rvalue = []
           l_rows  = new_ltable.loc[row[lfokn]]

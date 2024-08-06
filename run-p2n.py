@@ -2,7 +2,7 @@
 # usage :  > conda activate py37;  
 #          > python37 thisfile.py --task ditto-pairs --project penumbra
 #          > python37 thisfile.py --task uid2ditto --project penumbra
-#          > python37 thisfile.py --task train-ditto --load_ckp --save_model ---n_epoch 4 --size 32 --project penumbra
+#          > python37 thisfile.py --task train-ditto --load_ckp --save_model --n_epochs 4 --size 32 --project penumbra
 #          > python37 thisfile.py --task forward-L   --load_ckp                                     --project penumbra
 #          > python37 thisfile.py --task forward-noL --load_ckp                                     --project penumbra
 #          parameters to use in case of memory deficit
@@ -88,7 +88,7 @@ def add_dummy_label( infile=None, outfile=None, label=-1 ):
 # input :  path to datafile to be converted into a pytorch DataLoader
 def preForward( path ):
     model, optimizer, scheduler, epoch = didi.load_model( args, 10 )
-    inDaet  = dida.DittoDataset( path=path, lm=args.lm, clipdaet=args.clipdaet )      #sn daet.pairs[1] is plain text
+    inDaet  = dida.DittoDataset( path=path, lm=args.lm, clipdaet=args.clipdaet  )      #sn daet.pairs[1] is plain text
     dloader = torch.utils.data.DataLoader( dataset=inDaet , batch_size=args.batch_size  #sn was batch_size*16
     ,         shuffle=False, num_workers=0, collate_fn=inDaet.pad ) 
     return  model, dloader
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     parser.add_argument("--fp16"      , dest="fp16", action="store_true")
     parser.add_argument("--da"        , type=str, default=None)
     parser.add_argument("--alpha_aug" , type=float, default=0.8)
-    parser.add_argument("--dok"       , type=str, default=None)    #sn was --dk
+    parser.add_argument("--dok"       , type=str, default=None)    #sn was --dok
     parser.add_argument("--summarize" , dest="summarize", action="store_true")
     parser.add_argument("--size"      , type=int, default=256)     #sn superceded in some places by clipdaet.  i haven't found all occurences of "size" to replace with "clipdaet"
     parser.add_argument("--batch_size", type=int, default=20)      #sn was 512.  batch 30 would cause cuda out of memory error in forward() when bert(x1)[0][:,:,:]
@@ -211,7 +211,7 @@ elif args.project == 'penumbra' and args.task == 'ditto-pairs':                 
 
 # copied code from train_ditto.py:
 # sn name changes:      trainset --> trainpath.        train_dataset --> traindaet
-elif args.project == 'penumbra' and args.task == 'train-ditto':                      #sn  added elif-ditto section
+elif args.project == 'penumbra' and args.task == 'train-ditto':    #sn  added elif-ditto section
     runtag    = '%s_lm=%s_da=%s_dok=%s_su=%s_clipdaet=%s_id=%d' % ( args.task, args.lm, 
         args.da, args.dok, args.summarize, str(args.clipdaet), args.run_id )
     runtag    = runtag.replace('/', '_')
