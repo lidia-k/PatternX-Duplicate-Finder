@@ -13,6 +13,37 @@
 # |    |    |--> process_int_cols()
 # |--> build_nonmatching_pairs()
 # |    |-- same as matching pairs ...
+#
+"""
+inventory of format and pair conversions:
+
+ (h)         gel2ditto                          pair2single             single2csv
+A,B,C daf  -------1------> col-val \t col-val -------2------> col-val -------3------> john, smith
+  ^                           (d) ditto                       col-val                 john, smith
+4 |  pairs2daf                                                  (i)                      (b)
+  |
+ (g)     uids2nodes   (j)
+neo4j <-------------- uid
+pairs                 pairs
+
+
+
+  daf <--> csv
+gel-1       gel-2
+ditto-1     ditto-2
+
+
+    |  1s  |  2s
+----+------+------
+daf |  a   |   h    <--- dict of columns
+csv |  b   |   c    --+
+ddo |  i   |   d      |- list of strings
+gel |  -   |   e    --+
+nod |  f   |   g    <--- neo4j node list
+uid |  -   |   j
+          easy
+g --4-> h      a <--> b   c    d <-1-- e
+"""
 #==============================================================================
 
 import pandas as pd, pdb, math, numpy as np
@@ -151,12 +182,60 @@ class DataPreprocessor:
         print(f'The number of mismatch pairs:', len(C))
         return A,B,C
 
-    def splitDset( self, los, ratio ):                                        # split into train-valon-test
+    def splitDset( self, los, ratio ):                                        # split into train-van-test
        chunk = math.floor( len(los) / ( ratio[0] + ratio[1] + ratio[2] ) )
        seg1b = 0      ; seg1e = seg1b + ratio[0] * chunk;  train = los[ seg1b : seg1e ]
        seg2b = seg1e+1; seg2e = seg2b + ratio[1] * chunk;  valid = los[ seg2b : seg2e ]
        seg3b = seg2e+1; seg3e = seg3b + ratio[2] * chunk;  test  = los[ seg3b : seg3e ]
        return train, valid, test
+
+    #--------------------------------------------------------------------------
+    #
+    #                            format conversions
+    #
+    #--------------------------------------------------------------------------
+
+    #--------
+    # intent: split node pairs list from a neo4j query into 3 tables, represented as dataframes.
+    #         2d-list of neo4j nodes        ldaf       rdaf           bdaf
+    #         +-  [a,b]  -+                a:---      b:---      a.uid, b.uid, 1
+    #         |   [c,d]   |       --->     c:---      d:---      c.uid, d.uid, 1
+    #         +-  [e,f]  -+                e:---      f:---      e.uid, f.uid, 1
+    #         the output dafs is intended to feed into gel2ditto()                  
+    # usage : A,B,C = pairs2daf( pairs, 1 ).  1 is the label for matching pairs
+    # input : (pairs, labels).  pairs is the output of graph.cypher_transaction( '...match...' ).
+    #         pairs is a 2d list.  ex -- shape of pairs = 5700 x 2.  each element is neo4j node.
+    #         ex:  pairs = [ [a,b] [c,d] [e,f] [g,h] ], where each letter is a neo4j Node 
+    #         (Pdb) type( pairs[0][0] )  --> <class 'neo4j.graph.Node'>
+    #         this is a pair [a,b]:
+    #         [<Node '4:3a1..f0a:658' labels=..'Provider' properties={'country': 'United States', 'uid': 'po_no_660', 'fname': 'Robert', 'lname': 'Ryan', 'npi': 1720366024 ,... 'qb_id': 5274}>
+    #         ,<Node '4:3a1..f0a:660' labels=..'Provider' properties={'uid': 'po_no_662', 'fname': 'Roby', ... 'qb_id': 893}>]
+    #
+    # output: 3 dataframes.  left, right, and combined.  combined has columns (luid, ruid, label)
+    #         ldaf = table (dataframe) for nodes a,c,e,g.  rdaf contains b,d,f,h.
+    # vocabs: r = right.  l = left.  b = both r and l 
+    # method: after converting nodes to dataframe, we still need to do some cleanup:
+    #         convert char to numerics for id columns, replace 0 with nan, delete "embedding" column.
+    #--------
+
+    def _pairs2daf( self, pairs: list, label: int ):
+        # drop columns:  text, embeddings.  convert int columns
+        lrows = [ record[0] for record in pairs ];     ldaf = pd.DataFrame( lrows );
+        rrows = [ record[1] for record in pairs ];     rdaf = pd.DataFrame( rrows );
+        ldaf  = ldaf.rename( columns={'uid':'luid'} ) 
+        rdaf  = rdaf.rename( columns={'uid':'ruid'} )
+        # drop columns
+        drops = [ 'text', 'embedding' ]
+        for column in drops:  ldaf  = ldaf.drop( column, axis=1 )                   # ldaf  = ldaf.drop( 'text', axis=1 ); ldaf = ldaf.drop( 'embedding', axis=1 );
+        for column in drops:  rdaf  = rdaf.drop( column, axis=1 )
+        if ('npi' in drops and self.args.npi == False): ldaf  = ldaf.drop(  'npi', axis=1 ) 
+        if ('npi' in drops and self.args.npi == False): rdaf  = rdaf.drop(  'npi', axis=1 ) 
+        # int columns.  uid's, label
+        ldaf  = process_int_cols( ldaf, constants.INT_COLS);  ldaf = ldaf.replace( 0, np.nan );
+        rdaf  = process_int_cols( rdaf, constants.INT_COLS);  rdaf = rdaf.replace( 0, np.nan );
+        brows = [ [ record[0]['uid'], record[1]['uid'], label ] for record in pairs ]; 
+        bdaf  = pd.DataFrame( brows, columns=['luid','ruid','label'] )
+        return ldaf, rdaf, bdaf
 
     #--------
     # intent:  convert data from Magellan format to Ditto
@@ -206,6 +285,100 @@ class DataPreprocessor:
         df_combined[ "formatted_string" ] = df_combined.apply( formatted_string, axis=1 )
         df_combined[ "formatted_string" ].to_csv("formatted_string.csv")
         return df_combined["formatted_string"].tolist()
+
+    #---------------------------------------
+    # input : path to data file.  the file contains pairs of uids.
+    #         po_co_128, sp_al_839
+    #         sp_al_101, po_us_595
+    # output: [ [a,b] .. [e,f] ].  each letter is a raw neo4j node struct received 
+    #         from a database query.
+    #         also writes the results into a file, but i'm not sure if the raw nodes 
+    #         can be serialized to a file and be read later
+    #a  gel2ditto() returns [ ['abc'] ['def'] ].  so to get at the string, we need 
+    #         for s in los: ..s[0]..
+    #b  result = [ [ <Node>, <Node> ] ], so result[0] = [ <Node>, <Node> ]
+    #---------------------------------------
+    def uids2nodes( self, infile, outfile ):
+        results = []; los = []
+        with open( infile       ) as f:  lines = f.read().splitlines()
+        for line in lines:  
+            uids    = line.split(",")
+            uids[0] = uids[0].strip()
+            uids[1] = uids[1].strip()
+            query   = f'match (a), (b) where a.uid = "{uids[0]}" and b.uid = "{uids[1]}" return a, b'
+            result  = self.graph.cypher_transaction( query )
+            results.append( result[0] )                                               #b
+        dok = { "PERSON" : [ 'first name', 'last name', 'fname']
+        ,       "ID"     : ['national provider id', 'sap_no', 'Quickbase id'] }
+        for i in range( len(results) ):
+            A, B, C = self._pairs2daf( [ results[i] ], 1 )
+            C['id'] = C.index
+            los.append( self.gel2ditto( A, B, C, 'luid', 'ruid', dok, 'id', 'label' ) )
+        with open( outfile, "w" ) as f:  f.writelines( [ s[0] + '\n' for s in los ] ) #a
+        return results
+
+#---------------------------------------
+# intent:  break a line containing a pair into 2 lines (1 line per node) for easier comparison by a human
+# input :  ex:  col fname val john ... \t col fname val johnathon ... \t 1   (line #4 in file)
+# output:       4 1 col fname val john      ...
+#               4 1 col fname val johnathan ...
+#---------------------------------------
+def pair2single( infile, outfile ):
+    label = ''; segments = []; lines = []; lostr = []; i = 0
+    with open( infile       ) as f:  lines = f.read().splitlines()
+    for line in lines:
+        segments = line.split('\t')
+        label = segments[2] if len(segments) == 3 else ''
+        lostr.append( str(i) + label + ' ' + segments[0].strip() ) 
+        lostr.append( str(i) + label + ' ' + segments[1].strip() )
+        i = i + 1
+    with open( outfile, "w" ) as f:  f.writelines( [ s + '\n' for s in lostr ] )
+    return outfile
+
+#---------------------------------------
+# intent: convert a single node (not pair) in ditto format to csv
+# input : file with lines like this
+#         COL fname VAL [PERSON] Evans [/PERSON]  ... COL sap_no VAL [ID] 90358207 [/ID] COL id VAL 94
+# output: csv file with lines like this
+#         fname,.., sap_no, id
+#         Evans,.., 90358207, 94
+#a COL fname VAL john COL ... --> xxx = [ fname VAL john, lname VAL smith,..]
+#b pop: remove "i -1" from list
+#---------------------------------------
+def single2csv( infile, outfile ):
+    cnames = []; values = []; xxx = []; body = []
+    with open( infile ) as f:  lines = f.read().splitlines()
+    # extract column names from the first line:
+    xxx    = lines[0].split('COL ')                    #a
+    cnames = [ s.split(' VAL ')[0]  for s in xxx ];
+    cnames.pop(0);  body.append( ",".join( cnames ) )  #b
+    # extract VAL from each line:
+    for line in lines:
+        xxx    = line.split('COL ')                    # xxx = [ fname VAL john, lname VAL smith,..]
+        xxx.pop(0)                                     # remove "# -1"
+        values = [ s.split(' VAL ')[1]  for s in xxx ]
+        body.append( ','.join( values ) )
+    with open( outfile, "w") as f:  f.writelines([ f"{i}\n" for i in body ])
+
+#---------------------------------------
+# intent:
+#---------------------------------------
+def create_synoname_nodes():
+    add = 0
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    with open(dir_path + "/synonyms.txt", "r", encoding="utf-8") as file:
+        for line in file:
+            columns = line.strip().split("\t")
+            properties = {
+                "name"   : columns[0] + (", {}".format(columns[4]) if len(columns) == 5 else ""),
+                "origin" : columns[1],  "gender" : columns[2],
+                "meaning": columns[3] if len(columns) > 4 else None }
+            q = """ CREATE (synonym:Synoname $properties) RETURN synonym """
+            self.graph.cypher_transaction(q, {"properties": properties})
+            add += 1
+            print("Added {} Synoname nodes.".format(add))
+    print("Note - use this cypher command to delete all Synoname nodes: MATCH (n:Synoname) DELETE n")
+
 
 """
     I need to add an parameter "dk" 
