@@ -59,8 +59,9 @@
 #==============================================================================
 
 import argparse, joblib, sys, pdb, os, time, torch
-sys.path.append(   '/home/snguyen/norm/dupsie/ditto' )
-sys.path.insert(0, "/home/snguyen/norm/dupsie/apex") 
+import random
+sys.path.append(   '/home/win/code/ditto' )
+sys.path.insert(0, "/home/win/code/apex") 
 import numpy as np, pandas as pd, math   # math for floor() function
 from sklearn.utils import shuffle
 from src.DF_penumbra import constants;
@@ -215,9 +216,9 @@ elif args.project == 'penumbra' and args.task == 'train-ditto':    #sn  added el
     runtag    = '%s_lm=%s_da=%s_dok=%s_su=%s_clipdaet=%s_id=%d' % ( args.task, args.lm, 
         args.da, args.dok, args.summarize, str(args.clipdaet), args.run_id )
     runtag    = runtag.replace('/', '_')
-    traindaet = dida.DittoDataset( trainpath, lm=args.lm, max_len=args.max_len, clipdaet=args.clipdaet, da=args.da )
-    validdaet = dida.DittoDataset( validpath, lm=args.lm, clipdaet=args.clipdaet )   #sn validdaet.pairs[1] is plain text
-    testdaet  = dida.DittoDataset( testpath , lm=args.lm, clipdaet=args.clipdaet )
+    traindaet = dida.DittoDataset( trainpath, lm=args.lm, max_len=args.max_len, size=args.clipdaet, da=args.da )
+    validdaet = dida.DittoDataset( validpath, lm=args.lm, size=args.clipdaet )   #sn validdaet.pairs[1] is plain text
+    testdaet  = dida.DittoDataset( testpath , lm=args.lm, size=args.clipdaet )
     start_time = time.strftime("%Y%m%d-%H%M%S")
     print( "train start = "  + start_time )
     didi.train( traindaet, validdaet, testdaet, runtag, args )

@@ -226,8 +226,8 @@ class DataPreprocessor:
         rdaf  = rdaf.rename( columns={'uid':'ruid'} )
         # drop columns
         drops = [ 'text', 'embedding' ]
-        for column in drops:  ldaf  = ldaf.drop( column, axis=1 )                   # ldaf  = ldaf.drop( 'text', axis=1 ); ldaf = ldaf.drop( 'embedding', axis=1 );
-        for column in drops:  rdaf  = rdaf.drop( column, axis=1 )
+        for column in drops:  ldaf  = ldaf.drop( column, axis=1, errors="ignore" )                   # ldaf  = ldaf.drop( 'text', axis=1 ); ldaf = ldaf.drop( 'embedding', axis=1 );
+        for column in drops:  rdaf  = rdaf.drop( column, axis=1, errors="ignore" )
         if ('npi' in drops and self.args.npi == False): ldaf  = ldaf.drop(  'npi', axis=1 ) 
         if ('npi' in drops and self.args.npi == False): rdaf  = rdaf.drop(  'npi', axis=1 ) 
         # int columns.  uid's, label
