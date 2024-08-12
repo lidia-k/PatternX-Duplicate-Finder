@@ -61,7 +61,7 @@
 import argparse, joblib, sys, pdb, os, time, torch
 import random
 sys.path.append(   '/home/knnguyen/norm/dupsie/ditto' )
-sys.path.insert(0, "/home/snguyen/norm/dupsie/apex") 
+sys.path.insert(0, "/home/knnguyen/norm/dupsie/apex") 
 import numpy as np, pandas as pd, math   # math for floor() function
 from sklearn.utils import shuffle
 from src.DF_penumbra import constants;
