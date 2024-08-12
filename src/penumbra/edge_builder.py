@@ -220,7 +220,7 @@ class EdgeBuilder:
     def similarity_search(self):
         # Generate embeddings for the text properties of all nodes
         for node in ["Provider", "Speaker", "Master"]:
-            vector_g = VectorGraph(node)
+            vector_g = VectorGraph(node_labe=node, index_name='penumbra_index')
 
         csv_data = []
         empty_row = {col: "" for col in constants.COLS_TO_USE}

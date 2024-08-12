@@ -45,7 +45,7 @@ You can download the SyntheticMass dataset [here](https://synthea.mitre.org/down
 
 ### Run Neo4j 
 
-Use the following command to run a Neo4j container. You will need a Neo4j container running to build database from the dataset and create datapoints. 
+Use the following command to run a Neo4j container. You will need a Neo4j container running to build database from the dataset.
 
 ```
 docker run --name testneo4j -p7474:7474 -p7687:7687 -d \
@@ -69,6 +69,13 @@ Run `python build_database_from_FHIR.py` from /GNN_on_FHIR directory. To run the
 
 _TODO: The current code is creating a edge type for every single edge, which exponentially increases the total number of edge types. This part of the code (`FHIR_to_graph.py/resource_to_edges`) needs to be updated to only create a new edge type for a unique relationship between two node types._
 
+### Play with RAG on FHIR 
+
+Using the graph database created with FHIR as contextual information, you can try RAG (Retrieval Augmented Generation). There is a flask app that you can run with a simple UI for QnA. You first need to [download ollama](https://ollama.com/) and run it locally with `ollama run llama3.1`
+
+To run the app, run `python app.py` from /fhir_rag directory. 
+
+This is based on the code for [RAG_on_FHIR by Sam Schifman](https://github.com/samschifman/RAG_on_FHIR/blob/main/RAG_on_FHIR_with_KG/FHIR_GRAPHS.ipynb)
 
 ### Create datapoints from the Neo4j database
 

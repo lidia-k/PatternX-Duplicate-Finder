@@ -16,11 +16,11 @@ graph = Graph(NEO4J_URI, USERNAME, PASSWORD)
 
 print(graph.resource_metrics())
 print(graph.database_metrics())
-#graph.wipe_database()
+graph.wipe_database()
 
-
-synthea_bundles = glob.glob("../synthea_sample_data_fhir_latest/*.json")
+synthea_bundles = [glob.glob("../../synthea_sample_data_fhir_latest/*.json")[0]]
 synthea_bundles.sort()
+print(f"file name: {synthea_bundles}")
 print(f"Number of files: {len(synthea_bundles)}")
 
 nodes = []

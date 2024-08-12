@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Q&A Comparison</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        input[type="submit"] {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .answer {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .comparison {
+            display: flex;
+            justify-content: space-between;
+        }
+        .comparison > div {
+            width: 48%;
+        }
+    </style>
+</head>
+<body>
+    <h1>FHIR Q&A Comparison</h1>
+    <form method="POST">
+        <input type="text" name="question" placeholder="Enter your question" required>
+        <input type="submit" value="Ask">
+    </form>
+    {% if no_context_answer and context_answer %}
+    <div class="comparison">
+        <div>
+            <h2>Answer without Context:</h2>
+            <div class="answer">
+                <p>{{ no_context_answer }}</p>
+            </div>
+        </div>
+        <div>
+            <h2>Answer with Context:</h2>
+            <div class="answer">
+                <p>{{ context_answer }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>

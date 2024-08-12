@@ -1,4 +1,5 @@
 import time
+
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Neo4jVector
 from neo4j import GraphDatabase
@@ -99,22 +100,38 @@ class Graph:
 
 
 class VectorGraph:
-    def __init__(self, node_label, model='sentence-transformers/all-MiniLM-L6-v2'):
+
+    def __init__(self, node_label, index_name, model='sentence-transformers/all-MiniLM-L6-v2'):
         self.embedding = HuggingFaceEmbeddings(model_name=model)
         self.node_label = node_label
-        self.vector_graph = self.initialize_vector_graph()
-
-    def initialize_vector_graph(self):
-        return Neo4jVector.from_existing_graph(
+        self.index_name = index_name
+    
+    def _retrieve_existing_index(self, query):
+        return Neo4jVector.from_existing_index(
             embedding=self.embedding,
             url=config.NEO4J_URL,
             username=config.NEO4J_USER,
             password=config.NEO4J_PASSWORD,
-            index_name='penumbra_index',
-            node_label=self.node_label,
-            text_node_properties=['text'],
-            embedding_node_property='embedding'
+            index_name=self.index_name,
+            retrieval_query=query
         )
 
+    def initialize_index(self, query=None):
+        try: 
+            index = self._retrieve_existing_index(query)
+        except ValueError:
+            Neo4jVector.from_existing_graph(
+                embedding=self.embedding,
+                url=config.NEO4J_URL,
+                username=config.NEO4J_USER,
+                password=config.NEO4J_PASSWORD,
+                index_name=self.index_name,
+                node_label=self.node_label,
+                text_node_properties=['text'],
+                embedding_node_property='embedding'
+            )
+            index = self._retrieve_existing_index(query)
+        return index 
+
     def similarity_search_with_score(self, text, k=4):
-        return self.vector_graph.similarity_search_with_score(query=text, k=k)
+        return self.index.similarity_search_with_score(query=text, k=k)
