@@ -15,7 +15,7 @@ from src.dao.NEO4J_Graph import VectorGraph
 
 """
 Question examples:
-- How much did the cesearan section on Jan. 16, 2014 cost?
+- How much did the cesarean section on Jan. 16, 2014 cost?
 - From which institution, does the patient receive the cesarean section on Jan. 16, 2014?
 - When did the patient get the cesarean section? 
 """
@@ -61,7 +61,6 @@ def index():
     context_answer = None
     if request.method == 'POST':
         question = request.form['question']
-        
         no_context_answer = llm(question)
         context_answer = vector_qa.run(question)
     return render_template('index.html', no_context_answer=no_context_answer, context_answer=context_answer)
