@@ -47,7 +47,7 @@
         <input type="text" name="question" placeholder="Enter your question" required>
         <input type="submit" value="Ask">
     </form>
-    {% if no_context_answer and context_answer %}
+    {% if no_context_answer or context_answer %}
     <div class="comparison">
         <div>
             <h2>Answer without Context:</h2>

@@ -7,20 +7,19 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from flask import Flask, render_template, request
 from langchain import PromptTemplate
 from langchain.chains import RetrievalQA
-from langchain.chat_models import ChatOllama
-from langchain.llms import Ollama
+from langchain.chat_models import ChatOllama, ChatAnthropic
+from langchain.llms import HuggingFaceHub, Ollama
 
 from src.dao.NEO4J_Graph import VectorGraph
 
 
-"""
-Question examples:
-- How much did the cesarean section on Jan. 16, 2014 cost?
-- From which institution, does the patient receive the cesarean section on Jan. 16, 2014?
-- When did the patient get the cesarean section? 
-"""
 
 app = Flask(__name__)
+
+api_key = os.getenv("ANTHROPIC_API_KEY")
+if not api_key:
+    raise ValueError("Please set the ANTHROPIC_API_KEY environment variable")
+
 
 
 # Initialize VectorGraph and index
@@ -31,6 +30,7 @@ with node.text as self, reduce(s="", item in collect(distinct sc.text) | s + "\n
 return "Primary Entry:\n" + self + ctxt as text, score, metadata
 """
 index = vg.initialize_index(contextualized_query)
+
 
 prompt = '''
 System: The context below contains entries about the patient's healthcare. 
@@ -43,17 +43,31 @@ Human: {question}
 '''
 prompt = PromptTemplate.from_template(prompt)
 
-ollama_model = 'mistral'
-llm = Ollama(model=ollama_model)
+#ollama_model = 'mistral'
+#llm = Ollama(model=ollama_model)
+#chat_model = ChatOllama(model=ollama_model)
+
+chat_model = ChatAnthropic(model='claude-3')
 
 k_nearest = 200
 vector_qa = RetrievalQA.from_chain_type(
-    llm=ChatOllama(model=ollama_model),
+    llm=chat_model,
     chain_type="stuff",
     retriever=index.as_retriever(search_kwargs={'k': k_nearest}),
     verbose=True,
     chain_type_kwargs={"verbose": True, "prompt": prompt}
 )
+
+
+
+"""
+Question examples:
+- How much did the cesarean section on Jan. 16, 2014 cost?
+- From which institution, does the patient receive the cesarean section on Jan. 16, 2014?
+- When did the patient get the cesarean section? 
+"""
+
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -61,9 +75,11 @@ def index():
     context_answer = None
     if request.method == 'POST':
         question = request.form['question']
-        no_context_answer = llm(question)
+        #no_context_answer = llm(question)
         context_answer = vector_qa.run(question)
     return render_template('index.html', no_context_answer=no_context_answer, context_answer=context_answer)
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
