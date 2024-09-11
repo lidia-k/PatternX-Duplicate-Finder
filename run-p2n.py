@@ -216,6 +216,7 @@ elif args.project == 'penumbra' and args.task == 'synoname': dp.create_synoname_
 #n with labels, yorf means f1
 elif args.task == 'forward-L' and args.project == 'penumbra':                               # test on LABELED data
     model, dloader = preForward( dadi + '/valid.txt' )
+    model.eval()
     all_probs, all_y, yhat, yora = didi.forwardSN( model, dloader, .95, label=True )       #n
     # print( f'run.py yorf = {yorf} \nyhat = {yhat}' )
     # count the # of 1's in yorf:  xx =[i for i in yorf if i == 1];  len(xx)

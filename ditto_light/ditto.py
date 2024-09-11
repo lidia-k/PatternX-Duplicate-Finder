@@ -239,7 +239,6 @@ def train(trainset, validset, testset, run_tag, hp):
         train_step( train_iter, model, optimizer, scheduler, hp )
         model.eval()
         acc, th, yhat = evaluate( model, valid_iter, .95 )     #e
-        acc, th, yhat = evaluate( model, valid_iter, .95 )     #e
         van_acc = ( acc['tpr'] + acc['tnr'] ) / 2              #e
         if van_acc        > best_van_acc:                      #e #f
             best_van_acc  = van_acc                            #e
