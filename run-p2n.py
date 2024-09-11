@@ -1,20 +1,39 @@
+#!/home/snguyen/big/app/python3.7/bin/python3.7
+"""
+args.lm distilbert --> distilbert-base-uncased
+
+ File "/home/snguyen/norm/dupsie/ditto/ditto_light/ditto.py", line 222, in train
+    model, optimizer, scheduler, epoch = load_model( hp, num_steps )  #sn:  the body of load_model() was here.  i removed and functionized it.
+  File "/home/snguyen/norm/dupsie/ditto/ditto_light/ditto.py", line 282, in load_model
+    tokenizer = AutoTokenizer.from_pretrained( hp.lm ) 
+  File "/home/snguyen/big/app/python3.7/lib/python3.7/site-packages/transformers/models/auto/tokenization_auto.py", line 534, in from_pretrained
+    config = AutoConfig.from_pretrained(pretrained_model_name_or_path, **kwargs)
+  File "/home/snguyen/big/app/python3.7/lib/python3.7/site-packages/transformers/models/auto/configuration_auto.py", line 450, in from_pretrained
+    config_dict, _ = PretrainedConfig.get_config_dict(pretrained_model_name_or_path, **kwargs)
+  File "/home/snguyen/big/app/python3.7/lib/python3.7/site-packages/transformers/configuration_utils.py", line 532, in get_config_dict
+    raise EnvironmentError(msg)
+OSError: Can't load config for 'distilbert'. Make sure that:
+- 'distilbert' is a correct model identifier listed on 'https://huggingface.co/models'
+- or 'distilbert' is the correct path to a directory containing a config.json file
+"""
+
 #==============================================================================
 # usage :  > conda activate py37;  
-#          > python37 thisfile.py --task ditto-pairs --project penumbra
-#          > python37 thisfile.py --task uid2ditto --project penumbra
-#          > python37 thisfile.py --task train-ditto --load_ckp --save_model --n_epochs 4 --size 32 --project penumbra
-#          > python37 thisfile.py --task forward-L   --load_ckp                                     --project penumbra
-#          > python37 thisfile.py --task forward-noL --load_ckp                                     --project penumbra
+#          > python37 thisfile.py --task ditto-pairs 
+#          > python37 thisfile.py --task uid2ditto 
+#          > python37 thisfile.py --task train-ditto --load_ckp 1 --save_model --n_epochs 4 --size 32 
+#          > python37 thisfile.py --task forward-L   --load_ckp 1                                     
+#          > python37 thisfile.py --task forward-noL --load_ckp 1                                     
 #          parameters to use in case of memory deficit
 #          --maxlen    512.  the # of tokens in a pair
 #          --batch_size 40.  the # of pairs to use in a single Forward and Backward pass.
-#          --clipdaet 1000.  use only 1000 pairs in the epochs, even if dataset is much larger.  
+#          --clipdet 1000.  use only 1000 pairs in the epochs, even if dataset is much larger.  
 #            this is especially relevant in Forward mode, when it has to store the entire dataset result w/o batching.
 #          
 # change:  dittoSN.py vs ditto.py.  load_state_dict(), don't use test.csv, print f1 properly
 #          dataset0L vs dataset.py. run forward() on Lidia's test set.
 # vocab :  yorf := yhat OR f1.  ditto.py::forwardSN() returns yhat if no labels are given, or f1 if they are
-#          daet := data set
+#          det := data set
 # to-do :  tokenize email, nan --> unk, state1 --> state
 #          add tokens:  "npi", "quickbase", "sap"
 #          move hard-coded dok dictionary to constants.py 
@@ -32,7 +51,7 @@
 #           src/preprocessing/dataprep.py
 #           src/DG_penumbra/constants.py (RENAME_COLS), 
 #           dupsie/ditto/ditto_light/ditto.py (huggingface model/user_agent/token)
-#           dupsie/ditto/ditto_light/dataset.py.    size --> clipdaet, __init
+#           dupsie/ditto/ditto_light/dataset.py.    size --> clipdet, __init
 # related:  
 # files
 #
@@ -65,10 +84,12 @@ sys.path.append(   '/home/knnguyen/norm/dupsie/ditto' )
 sys.path.insert(0, "/home/knnguyen/norm/dupsie/apex") 
 import numpy as np, pandas as pd, math   # math for floor() function
 from sklearn.utils import shuffle
-from src.DF_penumbra import constants;
+from src.DF_penumbra import constants as constants
+# from src.DF_penumbra.constants import dok_nice as dok_nice
 import ditto_light.dataset   as dida     # normal training.  use labels
 import ditto_light.ditto     as didi     # good load_state_dict(), skips test.txt, best_f1 is monotonic
 import src.preprocessing.dataprep as dataprep
+threshold = .95
 dadi = "src/data"; seed = 42;            # to make reproducible results, set all random # generators to 42
 random.seed( seed );       np.random.seed( seed ); 
 torch.manual_seed( seed ); torch.cuda.manual_seed_all( seed )
@@ -88,11 +109,12 @@ def add_dummy_label( infile=None, outfile=None, label=-1 ):
 
 # intent:  prepare a model and dataloader to be used in a forward pass
 # input :  path to datafile to be converted into a pytorch DataLoader
+#a need "*16" to match ditto.train()
 def preForward( path ):
     model, optimizer, scheduler, epoch = didi.load_model( args, 10 )
-    inDaet  = dida.DittoDataset( path=path, lm=args.lm, clipdaet=args.clipdaet  )      #sn daet.pairs[1] is plain text
-    dloader = torch.utils.data.DataLoader( dataset=inDaet , batch_size=args.batch_size  #sn was batch_size*16
-    ,         shuffle=False, num_workers=0, collate_fn=inDaet.pad ) 
+    inDet  = dida.DittoDataset( path=path, lm=args.lm, clipdet=args.clipdet  )      #sn det.pairs[1] is plain text
+    dloader = torch.utils.data.DataLoader( dataset=inDet , batch_size= args.batch_size * 16  
+    ,         shuffle=False, num_workers=0, collate_fn=inDet.pad ) 
     return  model, dloader
 
 #a if lname replacement is executed first, then fullname executed, we get
@@ -110,6 +132,7 @@ def nicenames( inpath, outpath ):
         line = line.replace( 'state1'     , 'state' )
         line = line.replace( 'payments_to', 'payments to' )
         line = line.replace( 'qb_id'      , 'Quickbase id' )
+        line = line.replace( 'sap_no'     , 'sap id' )
         line = line.replace( 'npi'        , 'national provider id' )
         outlos.append( line )
    with open( outpath, "w") as f:  f.writelines([ f"{i}\n" for i in outlos ])
@@ -121,35 +144,41 @@ def nicenames( inpath, outpath ):
 if __name__ == '__main__':
     choices = ['adventureworks', 'penumbra']
     parser = argparse.ArgumentParser(description='Run different functions based on input parameters.')
-    parser.add_argument('--project'   , choices=choices, type=str, help='The project to run')
+    parser.add_argument('--project'   , choices=choices, default='penumbra', type=str, help='The project to run')
     parser.add_argument("--task"      , type=str, default=None, help="task name:{train, predict, online_train}",  metavar='')
     parser.add_argument("--npi"       , action="store_true", help="Include NPIs for training (default: exclude NPIs)")
     parser.add_argument("--model"     , type=str, default=None, help="model name",  metavar='')
     parser.add_argument("--data"      , type=str, default=None, help="data file name",  metavar='')
     # ditto arguments:
+    #b  to load pretrained network, load_ckp must be set to 1 by user.  
+    #   we cannot default it for them because we don't want to load by default, 
+    #   like training from scratch
     parser.add_argument("--run_id"    , type=int, default=0)
-    parser.add_argument("--max_len"   , type=int, default=512)     #sn max_len is the length of a pair.  eg 256 integers/pair.
+    parser.add_argument("--max_len"   , type=int, default=512)     #sn max_len is the length of a pair.  bert's max is 512.
     parser.add_argument("--lr"        , type=float, default=3e-5)  #sn was 3e-5
-    parser.add_argument("--n_epochs"  , type=int, default=20)
+    parser.add_argument("--n_epochs"  , type=int, default=1)
     parser.add_argument("--finetuning", dest="finetuning", action="store_true")
     parser.add_argument("--save_model", dest="save_model", action="store_true")
     parser.add_argument("--logdir"    , type=str, default="checkpoints/")
-    parser.add_argument("--lm"        , type=str, default='distilbert')
+    parser.add_argument("--lm"        , type=str, default='distilbert-base-uncased') # 240908 was "distilbert"
     parser.add_argument("--fp16"      , dest="fp16", action="store_true")
     parser.add_argument("--da"        , type=str, default=None)
     parser.add_argument("--alpha_aug" , type=float, default=0.8)
     parser.add_argument("--dok"       , type=str, default=None)    #sn was --dok
     parser.add_argument("--summarize" , dest="summarize", action="store_true")
-    parser.add_argument("--size"      , type=int, default=256)     #sn superceded in some places by clipdaet.  i haven't found all occurences of "size" to replace with "clipdaet"
-    parser.add_argument("--batch_size", type=int, default=20)      #sn was 512.  batch 30 would cause cuda out of memory error in forward() when bert(x1)[0][:,:,:]
-    parser.add_argument("--clipdaet"  , type=int, default=15000)
-    parser.add_argument("--load_ckp"  , type=str, nargs='?', help="provide the path to xxx.pt file")  # default='checkpoint/model.pt'
+    parser.add_argument("--size"      , type=int, default=256)     #sn superceded in some places by clipdet.  i haven't found all occurences of "size" to replace with "clipdet"
+    parser.add_argument("--batch_size", type=int, default=30)      #sn was 512.  batch 30 would cause cuda out of memory error in forward() when bert(x1)[0][:,:,:]
+    parser.add_argument("--clipdet"  , type=int, default=400)
+    parser.add_argument("--load_ckp"  , type=int, nargs='?', help="provide the path to xxx.pt file")  #b  # default='checkpoint/model.pt'
     parser.add_argument('--ckfile'    , type=str, default='model.pt', help='path to the model.pt file')
     args = parser.parse_args()
 
 device    = 'cuda' if torch.cuda.is_available() else 'cpu'
 trainpath = dadi + '/train.txt'; validpath = dadi + '/valid.txt'; 
 testpath  = dadi +  '/test.txt'
+dprep = dataprep.DataPreprocessor( dadi, args )
+
+# pdb.set_trace()
 
 #==============================================================================
 #                              IF-ELSE switch
@@ -166,12 +195,11 @@ if args.task == 'forward-noL' and args.project == 'penumbra':                   
     csvPath = dadi + '/junk.csv';  dataprep.single2csv( txtPath, csvPath )
     with open( csvPath ) as f:  lines = f.read().splitlines()
     lines.pop(0)                                                                            # remove header line
-    pdb.set_trace()
     for i in range( len(yora) ):
         print( f'{yora[i]}, {lines[2*i]} \n{yora[i]}, {lines[2*i + 1]} \n' )
     
 if args.task == 'uid2ditto' and args.project == 'penumbra':
-    f1 = dadi + '/npi-x-npi.txt'; f2 = dadi + '/npi-x-npi-ditto.txt'; f3 = f2
+    f1 = dadi + '/manual-pairs.uid'; f2 = dadi + '/manual-pairs.dit'; f3 = f2
     # f1 = dadi + '/junk1.txt'; f2 = dadi + '/junk2.txt'; f3 = dadi + '/junk3.txt'
     dprep = dataprep.DataPreprocessor( data_dir = dadi, args = None )
     dittoL = dprep.uids2nodes( f1, f2 )
@@ -187,11 +215,16 @@ elif args.project == 'penumbra' and args.task == 'synoname': dp.create_synoname_
 
 #n with labels, yorf means f1
 elif args.task == 'forward-L' and args.project == 'penumbra':                               # test on LABELED data
-    model, dloader = preForward( dadi + '/npi-x-npi-ditto.txt' )
+    model, dloader = preForward( dadi + '/valid.txt' )
     all_probs, all_y, yhat, yora = didi.forwardSN( model, dloader, .95, label=True )       #n
-    pdb.set_trace()
     # print( f'run.py yorf = {yorf} \nyhat = {yhat}' )
     # count the # of 1's in yorf:  xx =[i for i in yorf if i == 1];  len(xx)
+
+elif args.task == 'npi-pairs' and args.project == 'penumbra':
+    uidfile = dadi + '/npi-pairs.uid'; dittofile = dadi + '/npi-pairs.dit'
+    pdb.set_trace()
+    dprep.npi_pairs( 10, 15, uidfile )
+    dprep.uids2nodes(  uidfile, dittofile )
 
 #o create ditto pairs
 elif args.project == 'penumbra' and args.task == 'ditto-pairs':                             #sn  added elif-ditto section
@@ -203,27 +236,34 @@ elif args.project == 'penumbra' and args.task == 'ditto-pairs':                 
         dp = dataprep.DataPreprocessor( dadi, args )                               # lidia's src/DF_penumbra/data_preprocessor.py
         ltable, rtable, data = dp.prepare_ditto_data( skewed_factor=.5 )           # fetch from database into dataframe
         start_time = time.strftime("%Y%m%d-%H%M%S");   print( "gel2ditto()  start = "  + start_time );
-        dok                  = { "PERSON" : [ 'first name', 'last name', 'full name' ]
-        ,                        "ID"     : ['national provider id', 'sap_no', 'Quickbase id'] }
-        lostring             = dp.gel2ditto( ltable, rtable, data, 'luid', 'ruid', dok, 'id', 'label' )
+#        dok   = { "PERSON" : [ 'first name', 'last name', 'full name' ]
+#        ,                        "ID"     : ['national provider id', 'sap id', 'Quickbase id'] }
+#        dok_nice = src.DF_penumbra.constants.dok_nice
+        lostring             = dp.gel2ditto( ltable, rtable, data, 'luid', 'ruid', constants.dok_nice, 'id', 'label' )
         print( "gel2ditto()  end   = "  + time.strftime("%Y%m%d-%H%M%S") )
         lostring             = shuffle( lostring, random_state = 1 )
         train, valid, test   = dp.splitDset( lostring, [3,1,1] )
         writelist( trainpath, train ); writelist( validpath, valid ); writelist( testpath, test)
 
 # copied code from train_ditto.py:
-# sn name changes:      trainset --> trainpath.        train_dataset --> traindaet
+# sn name changes:      trainset --> trainpath.        train_dataset --> traindet
 elif args.project == 'penumbra' and args.task == 'train-ditto':    #sn  added elif-ditto section
-    runtag    = '%s_lm=%s_da=%s_dok=%s_su=%s_clipdaet=%s_id=%d' % ( args.task, args.lm, 
-        args.da, args.dok, args.summarize, str(args.clipdaet), args.run_id )
+    runtag    = '%s_lm=%s_da=%s_dok=%s_su=%s_clipdet=%s_id=%d' % ( args.task, args.lm, 
+        args.da, args.dok, args.summarize, str(args.clipdet), args.run_id )
     runtag    = runtag.replace('/', '_')
-    traindaet = dida.DittoDataset( trainpath, lm=args.lm, max_len=args.max_len, clipdaet=args.clipdaet, da=args.da )
-    validdaet = dida.DittoDataset( validpath, lm=args.lm, clipdaet=args.clipdaet )   #sn validdaet.pairs[1] is plain text
-    testdaet  = dida.DittoDataset( testpath , lm=args.lm, clipdaet=args.clipdaet )
+    traindet = dida.DittoDataset( trainpath, lm=args.lm, max_len=args.max_len, clipdet=args.clipdet, da=args.da )
+#   validpath = dadi + '/manual-pairs.dit'
+    validdet = dida.DittoDataset( validpath, lm=args.lm, clipdet=args.clipdet )   #sn validdet.pairs[1] is plain text
+    testdet  = dida.DittoDataset( testpath , lm=args.lm, clipdet=args.clipdet )
     start_time = time.strftime("%Y%m%d-%H%M%S")
     print( "train start = "  + start_time )
-    didi.train( traindaet, validdaet, testdaet, runtag, args )
+    didi.train( traindet, validdet, testdet, runtag, args )
     print( "train end   = "  + time.strftime("%Y%m%d-%H%M%S") )
+
+elif args.task == 'rank-prob' and args.project == 'penumbra':
+    model, dloader = preForward( dadi + '/valid.txt' )
+    didi.rankprob( model, dloader, .95, '/home/snguyen/junk/rank-prod.csv' )  
+
 else: print( 'did nothing' )
 
 """
