@@ -168,7 +168,7 @@ if __name__ == '__main__':
     parser.add_argument("--summarize" , dest="summarize", action="store_true")
     parser.add_argument("--size"      , type=int, default=256)     #sn superceded in some places by clipdet.  i haven't found all occurences of "size" to replace with "clipdet"
     parser.add_argument("--batch_size", type=int, default=30)      #sn was 512.  batch 30 would cause cuda out of memory error in forward() when bert(x1)[0][:,:,:]
-    parser.add_argument("--clipdet"  , type=int, default=400)
+    parser.add_argument("--clipdet"  , type=int, default=15000)
     parser.add_argument("--load_ckp"  , type=int, nargs='?', help="provide the path to xxx.pt file")  #b  # default='checkpoint/model.pt'
     parser.add_argument('--ckfile'    , type=str, default='model.pt', help='path to the model.pt file')
     args = parser.parse_args()
