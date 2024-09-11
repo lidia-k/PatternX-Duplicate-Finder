@@ -111,7 +111,7 @@ def add_dummy_label( infile=None, outfile=None, label=-1 ):
 # input :  path to datafile to be converted into a pytorch DataLoader
 #a need "*16" to match ditto.train()
 def preForward( path ):
-    model, optimizer, scheduler, epoch = didi.load_model( args, 10 )
+    model, optimizer, scheduler, epoch = didi.load_model( args, 500 )
     inDet  = dida.DittoDataset( path=path, lm=args.lm, clipdet=args.clipdet  )      #sn det.pairs[1] is plain text
     dloader = torch.utils.data.DataLoader( dataset=inDet , batch_size= args.batch_size * 16  
     ,         shuffle=False, num_workers=0, collate_fn=inDet.pad ) 
