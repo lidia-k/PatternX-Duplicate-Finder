@@ -261,11 +261,11 @@ def save_checkpoint( hp, model, optimizer, scheduler, epoch ):
 
 def load_model( hp, num_steps ):  # num_steps used by learning rate scheduler, not needed for evaluate()
     # initialize model, optimizer, and LR scheduler
-    print(f"Default float dtype: {torch.get_default_dtype()}")  # Mặc định là float32
-    print(f"TF32 enabled for matmul: {torch.backends.cuda.matmul.allow_tf32}")
-    print(f"TF32 enabled for cuDNN: {torch.backends.cudnn.allow_tf32}")
-    print(hp.fp16)
-    exit()
+    # print(f"Default float dtype: {torch.get_default_dtype()}")  # Mặc định là float32
+    # print(f"TF32 enabled for matmul: {torch.backends.cuda.matmul.allow_tf32}")
+    # print(f"TF32 enabled for cuDNN: {torch.backends.cudnn.allow_tf32}")
+    # print(hp.fp16)
+    # exit()
     epoch      = 0
     device     = 'cuda' if torch.cuda.is_available() else 'cpu'
     model      = DittoModel(device=device, lm=hp.lm, alpha_aug=hp.alpha_aug)

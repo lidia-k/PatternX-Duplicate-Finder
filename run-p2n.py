@@ -80,7 +80,7 @@ OSError: Can't load config for 'distilbert'. Make sure that:
 import argparse, joblib, sys, pdb, os, time, torch, random
 # sys.path.append(   '/home/win/code/new_ditto' )
 # sys.path.insert(0, "/home/win/code/apex") 
-sys.path.append(   '/home/knnguyen/norm/dupsie/ditto' )
+# sys.path.append(   '/home/knnguyen/norm/dupsie/ditto' )
 sys.path.insert(0, "/home/knnguyen/norm/dupsie/apex") 
 import numpy as np, pandas as pd, math   # math for floor() function
 from sklearn.utils import shuffle
