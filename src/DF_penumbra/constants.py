@@ -68,4 +68,10 @@ COLS_TO_USE = ['uid', 'fname', 'lname', 'fullname', 'npi',
 
 RENAME_COLS = { 'fname': 'first name', 'lname': 'last name', 'fullname':'full name', 
   'lic_state': 'state license',   'org_type':'organization type', 'state1':'state', 
-  'payments_to':'payments to', 'qb_id':'Quickbase id', 'npi': 'national provider id', }
+  'payments_to':'payments to', 'qb_id':'Quickbase id', 'npi': 'national provider id',
+  'sap_no': 'sap id'}
+
+dok_nice = { "PERSON" : [ 'first name', 'last name', 'full name' ]
+,            "ID"     : ['national provider id', 'sap id', 'Quickbase id'] }
+dok      = { "PERSON" : [ 'fname', 'lname', 'fullname']
+,            "ID"     : [ 'npi'  , 'sap_no', 'qb_id']}

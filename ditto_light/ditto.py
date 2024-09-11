@@ -222,6 +222,7 @@ def train(trainset, validset, testset, run_tag, hp):
     test_iter  = data.DataLoader(dataset=testset , batch_size=hp.batch_size*16, shuffle=False, num_workers=0, collate_fn=trainset.pad)
     writer     = SummaryWriter( log_dir=hp.logdir )           # log with tensorboardX
     num_steps  = (len(trainset) // hp.batch_size) * hp.n_epochs
+    print("num_steps", num_steps)
     model, optimizer, scheduler, epoch = load_model( hp, num_steps )  #sn:  the body of load_model() was here.  i removed and functionized it.
 
 #   if hp.train-tokens == 1:

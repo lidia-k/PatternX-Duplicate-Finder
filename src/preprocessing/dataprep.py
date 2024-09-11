@@ -52,6 +52,7 @@ from src.utils import auto_config as config          # for neo4j login
 from src.DF_penumbra.utils import process_int_cols
 from src.DF_penumbra import constants
 from itertools import combinations                   # for build_non_matching_pairs()
+from src.DF_penumbra.constants import dok
 
 # taken from dupsie/git/df-calvin-240415/src/dao/NEO4J_Graph -- Tu
 class Graph:
@@ -134,6 +135,8 @@ class DataPreprocessor:
         A1,B1,C1 = self._build_matching_pairs();
         limit      = 200 #sn math.floor( len(C1) * skewed_factor )
         A0,B0,C0   = self._build_non_matching_pairs( limit=limit )
+        A0["sap_no"] = None
+        B0["sap_no"] = None
         A1 = A1[ A0.columns ]; A = pd.concat( [A1, A0] );   # matchDaf    = matchDaf[ mismatchDaf.columns ]
         B1 = B1[ B0.columns ]; B = pd.concat( [B1, B0] );   # combinedDaf = pd.concat( [matchDaf, mismatchDaf], sort=False )
         C1 = C1[ C0.columns ]; C = pd.concat( [C1, C0] );  C['id'] = C.index 
@@ -149,6 +152,21 @@ class DataPreprocessor:
         print(f'The number of match pairs:', len(C))
         return A,B,C
 
+    def npi_pairs(self, matchK, mismatchK, outfile):
+        pairs = []
+        # matching
+        query = f'''MATCH (a)-[r]->(b) WHERE type(r) = "r1_npi" RETURN DISTINCT a.uid, b.uid ORDER BY RAND() LIMIT {matchK}'''
+        results = self.graph.cypher_transaction(query)
+        [pairs.append([result[0], result[1], 0]) for result in results]
+        pairs.append([""])  # empty line
+        # non-matching
+        query = f'''MATCH (a), (b) WHERE id(a) < id(b) AND a.npi IS NOT NULL AND b.npi IS NOT NULL AND NOT EXISTS ((a)-[:r1_npi]-(b)) RETURN DISTINCT a.uid, b.uid ORDER BY RAND() LIMIT {mismatchK}'''
+        results = self.graph.cypher_transaction(query)
+        [pairs.append([result[0], result[1], 1]) for result in results]
+        print(pairs)
+        # outfile
+        with open(outfile, "w") as f:  f.writelines([ ",".join(map(str, p)) + "\n" for p in pairs ])
+    
     #--------
     # intent:  create a list of mismatches
     # method:  get a list of names of known distinct people, and pair them up
@@ -299,20 +317,20 @@ class DataPreprocessor:
     #b  result = [ [ <Node>, <Node> ] ], so result[0] = [ <Node>, <Node> ]
     #---------------------------------------
     def uids2nodes( self, infile, outfile ):
-        results = []; los = []
+        results = []; los = []; labels = []
         with open( infile       ) as f:  lines = f.read().splitlines()
-        for line in lines:  
+        for line in lines:
+            if not line: continue
             uids    = line.split(",")
             uids[0] = uids[0].strip()
             uids[1] = uids[1].strip()
             query   = f'match (a), (b) where a.uid = "{uids[0]}" and b.uid = "{uids[1]}" return a, b'
             result  = self.graph.cypher_transaction( query )
             results.append( result[0] )                                               #b
-        dok = { "PERSON" : [ 'first name', 'last name', 'fname']
-        ,       "ID"     : ['national provider id', 'sap_no', 'Quickbase id'] }
+            labels.append(uids[2].strip())
         for i in range( len(results) ):
-            A, B, C = self._pairs2daf( [ results[i] ], 1 )
-            C['id'] = C.index
+            A, B, C = self._pairs2daf( [ results[i] ], labels[i] )
+            C['id'] = i
             los.append( self.gel2ditto( A, B, C, 'luid', 'ruid', dok, 'id', 'label' ) )
         with open( outfile, "w" ) as f:  f.writelines( [ s[0] + '\n' for s in los ] ) #a
         return results
