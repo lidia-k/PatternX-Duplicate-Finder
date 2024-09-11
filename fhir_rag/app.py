@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from flask import Flask, render_template, request
 from langchain import PromptTemplate
 from langchain.chains import RetrievalQA
-from langchain.chat_models import ChatOllama, ChatAnthropic
+from langchain.chat_models import ChatOpenAI
 from langchain.llms import HuggingFaceHub, Ollama
 
 from src.dao.NEO4J_Graph import VectorGraph
@@ -16,9 +16,9 @@ from src.dao.NEO4J_Graph import VectorGraph
 
 app = Flask(__name__)
 
-api_key = os.getenv("ANTHROPIC_API_KEY")
+api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
-    raise ValueError("Please set the ANTHROPIC_API_KEY environment variable")
+    raise ValueError("Please set the OPENAI_API_KEY environment variable")
 
 
 
@@ -26,7 +26,7 @@ if not api_key:
 vg = VectorGraph(node_label='resource', index_name='fhir_index')
 contextualized_query = """
 match (node)<-[]->(sc:resource)
-with node.text as self, reduce(s="", item in collect(distinct sc.text) | s + "\n\nSecondary Entry:\n" + item ) as ctxt, score, {} as metadata limit 1
+with node.text as self, reduce(s="", item in collect(distinct sc.text)[..5] | s + "\n\nSecondary Entry:\n" + item ) as ctxt, score, {} as metadata limit 1
 return "Primary Entry:\n" + self + ctxt as text, score, metadata
 """
 index = vg.initialize_index(contextualized_query)
@@ -47,9 +47,9 @@ prompt = PromptTemplate.from_template(prompt)
 #llm = Ollama(model=ollama_model)
 #chat_model = ChatOllama(model=ollama_model)
 
-chat_model = ChatAnthropic(model='claude-3')
+chat_model = ChatOpenAI(model_name="gpt-3.5-turbo")
 
-k_nearest = 200
+k_nearest = 10
 vector_qa = RetrievalQA.from_chain_type(
     llm=chat_model,
     chain_type="stuff",
