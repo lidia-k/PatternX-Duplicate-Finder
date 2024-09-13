@@ -84,12 +84,12 @@ def resource_to_edges(resource):
     references = []
     dates = []
     def search(json_to_flatten, name=''):
-        if name == 'text_':
+        if name == 'text':
             return
         elif type(json_to_flatten) is dict:
             for sub_attribute in json_to_flatten:
                 if sub_attribute == 'reference':
-                    relation = name[:-1]
+                    relation = name
                     reference_id_str = extract_id(json_to_flatten[sub_attribute])
                     if reference_id_str is not None:
                         cypher = f'''
@@ -126,10 +126,10 @@ def resource_to_edges(resource):
                         '''
                         references.append(cypher)
                 else:
-                    search(json_to_flatten[sub_attribute], name + split_camel(sub_attribute) + '_')
+                    search(json_to_flatten[sub_attribute], split_camel(sub_attribute))
         elif type(json_to_flatten) is list:
             for i, sub_json in enumerate(json_to_flatten):
-                search(sub_json, name + str(i) + '_')
+                search(sub_json, name)
 
     search(resource)
     return references, dates
