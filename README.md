@@ -59,7 +59,7 @@ docker run --name testneo4j -p7474:7474 -p7687:7687 -d \
 
 ### Build Neo4j database from the Synthea dataset
 
-Run `python build_database_from_FHIR.py` from /GNN_on_FHIR directory. To run the script successfully, the neo4j container should be running locally and the following environment variables need to be set. Please double check if the dataset path is correctly set in the script. 
+Run `python build_database_from_FHIR.py` from /GNN_on_FHIR directory. To run the script successfully, the neo4j container should be running locally and the following environment variables need to be set in the .env file at the project root level. You also need FHIR data samples saved locally. Please double check if the dataset path is correctly set in the script. 
 
 | Variable | Description | Value for above Docker |
 |----------|-------------|------------------------|
