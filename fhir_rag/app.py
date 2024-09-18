@@ -6,6 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from flask import Flask, render_template, request
 from langchain import PromptTemplate
+from langchain.callbacks import get_openai_callback
 from langchain.chains import RetrievalQA
 from langchain.chat_models import ChatOpenAI
 from langchain.llms import HuggingFaceHub, Ollama
@@ -26,7 +27,7 @@ if not api_key:
 vg = VectorGraph(node_label='resource', index_name='fhir_index')
 contextualized_query = """
 match (node)<-[]->(sc:resource)
-with node.text as self, reduce(s="", item in collect(distinct sc.text)[..5] | s + "\n\nSecondary Entry:\n" + item ) as ctxt, score, {} as metadata limit 1
+with node.text as self, reduce(s="", item in collect(distinct sc.text)[..5] | s + "\n\nSecondary Entry:\n" + item ) as ctxt, score, {} as metadata 
 return "Primary Entry:\n" + self + ctxt as text, score, metadata
 """
 index = vg.initialize_index(contextualized_query)
@@ -76,7 +77,15 @@ def index():
     if request.method == 'POST':
         question = request.form['question']
         #no_context_answer = llm(question)
-        context_answer = vector_qa.run(question)
+        with get_openai_callback() as cb:   
+            context_answer = vector_qa.run(question)
+            token_usage = {
+                'total_tokens': cb.total_tokens,
+                'prompt_tokens': cb.prompt_tokens,
+                'completion_tokens': cb.completion_tokens,
+                'total_cost': cb.total_cost
+            }
+            print(token_usage)
     return render_template('index.html', no_context_answer=no_context_answer, context_answer=context_answer)
 
 
