@@ -111,7 +111,8 @@ def add_dummy_label( infile=None, outfile=None, label=-1 ):
 # input :  path to datafile to be converted into a pytorch DataLoader
 #a need "*16" to match ditto.train()
 def preForward( path ):
-    model, optimizer, scheduler, epoch = didi.load_model( args, 500 )
+    model, optimizer, scheduler, epoch = didi.load_model( args, 10 )
+    model.eval()
     inDet  = dida.DittoDataset( path=path, lm=args.lm, clipdet=args.clipdet  )      #sn det.pairs[1] is plain text
     dloader = torch.utils.data.DataLoader( dataset=inDet , batch_size= args.batch_size * 16  
     ,         shuffle=False, num_workers=0, collate_fn=inDet.pad ) 
@@ -167,7 +168,7 @@ if __name__ == '__main__':
     parser.add_argument("--dok"       , type=str, default=None)    #sn was --dok
     parser.add_argument("--summarize" , dest="summarize", action="store_true")
     parser.add_argument("--size"      , type=int, default=256)     #sn superceded in some places by clipdet.  i haven't found all occurences of "size" to replace with "clipdet"
-    parser.add_argument("--batch_size", type=int, default=30)      #sn was 512.  batch 30 would cause cuda out of memory error in forward() when bert(x1)[0][:,:,:]
+    parser.add_argument("--batch_size", type=int, default=50)      #sn was 512.  batch 30 would cause cuda out of memory error in forward() when bert(x1)[0][:,:,:]
     parser.add_argument("--clipdet"  , type=int, default=15000)
     parser.add_argument("--load_ckp"  , type=int, nargs='?', help="provide the path to xxx.pt file")  #b  # default='checkpoint/model.pt'
     parser.add_argument('--ckfile'    , type=str, default='model.pt', help='path to the model.pt file')
@@ -178,7 +179,17 @@ trainpath = dadi + '/train.txt'; validpath = dadi + '/valid.txt';
 testpath  = dadi +  '/test.txt'
 dprep = dataprep.DataPreprocessor( dadi, args )
 
-# pdb.set_trace()
+def train_ditto():
+    runtag    = '%s_lm=%s_da=%s_dok=%s_su=%s_clipdet=%s_id=%d' % ( args.task, args.lm, 
+        args.da, args.dok, args.summarize, str(args.clipdet), args.run_id )
+    runtag    = runtag.replace('/', '_')
+    traindet = dida.DittoDataset( trainpath, lm=args.lm, max_len=args.max_len, clipdet=args.clipdet, da=args.da )
+    validdet = dida.DittoDataset( validpath, lm=args.lm, clipdet=args.clipdet )   #sn validdet.pairs[1] is plain text
+    testdet  = dida.DittoDataset( testpath , lm=args.lm, clipdet=args.clipdet )
+    start_time = time.strftime("%Y%m%d-%H%M%S")
+    print( "train start = "  + start_time )
+    didi.train( traindet, validdet, testdet, runtag, args )
+    print( "train end   = "  + time.strftime("%Y%m%d-%H%M%S") )
 
 #==============================================================================
 #                              IF-ELSE switch
@@ -215,16 +226,14 @@ elif args.project == 'penumbra' and args.task == 'synoname': dp.create_synoname_
 
 #n with labels, yorf means f1
 elif args.task == 'forward-L' and args.project == 'penumbra':                               # test on LABELED data
-    model, dloader = preForward( dadi + '/valid.txt' )
-    model.eval()
+    model, dloader = preForward( dadi + '/npi-pairs.dit' )
     all_probs, all_y, yhat, yora = didi.forwardSN( model, dloader, .95, label=True )       #n
     # print( f'run.py yorf = {yorf} \nyhat = {yhat}' )
     # count the # of 1's in yorf:  xx =[i for i in yorf if i == 1];  len(xx)
 
 elif args.task == 'npi-pairs' and args.project == 'penumbra':
     uidfile = dadi + '/npi-pairs.uid'; dittofile = dadi + '/npi-pairs.dit'
-    pdb.set_trace()
-    dprep.npi_pairs( 10, 15, uidfile )
+    dprep.npi_pairs( 100, 150, uidfile )
     dprep.uids2nodes(  uidfile, dittofile )
 
 #o create ditto pairs
@@ -248,7 +257,7 @@ elif args.project == 'penumbra' and args.task == 'ditto-pairs':                 
 
 # copied code from train_ditto.py:
 # sn name changes:      trainset --> trainpath.        train_dataset --> traindet
-elif args.project == 'penumbra' and args.task == 'train-ditto':    #sn  added elif-ditto section
+elif args.project == 'penumbra' and (args.task == 'train-ditto' or args.task == 'embeddings'):    #sn  added elif-ditto section
     runtag    = '%s_lm=%s_da=%s_dok=%s_su=%s_clipdet=%s_id=%d' % ( args.task, args.lm, 
         args.da, args.dok, args.summarize, str(args.clipdet), args.run_id )
     runtag    = runtag.replace('/', '_')

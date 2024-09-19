@@ -43,9 +43,6 @@
 #   model = AutoModelForCausalLM.from_pretrained("microsoft/Phi-3-mini-4k-instruct", trust_remote_code=True)
 
 import os, pdb, sys, pandas, torch, random, numpy as np, argparse
-import torch.backends
-import torch.backends.cuda
-import torch.backends.cudnn
 import torch.nn as nn, torch.nn.functional as F, torch.optim as optim
 import sklearn.metrics as metrics
 from .dataset import DittoDataset  #sn was DittoDataset
@@ -70,6 +67,7 @@ class DittoModel(nn.Module):
         self.dropout = nn.Dropout(0.2)
         self.fc1     = torch.nn.Linear( hidden_size, 20 )
         self.fc      = torch.nn.Linear( 20, 2 )
+        # pdb.set_trace()
 
 #g https://buomsoo-kim.github.io/attention/2020/04/22/Attention-mechanism-20.md/
 #  "the output of encoder has to match the target [fc]" 
@@ -93,12 +91,12 @@ class DittoModel(nn.Module):
         out  = self.fc( xx )
         return out       #sn was:    return self.fc(enc) # .squeeze() # .sigmoid()
 
-    def set_finetune_layers( self ):
-      bertLL = self.bert.transformer.layer[-1]  # bertLL = self.bert.encoder.layer[-1]  # bert last layer
-      for p in     self.parameters():  p.requires_grad = False # turn off all gradients
-      for p in self.fc1.parameters():  p.requires_grad = True  # turn on fc1
-      for p in  self.fc.parameters():  p.requires_grad = True  # turn on fc
-      for p in   bertLL.parameters():  p.requires_grad = True  # turn on near last bert layer
+    # input : layer = array of layer pointers.  eg. [ token, fc1, fc ]
+    # usage : open_weights( [ self.fc1, self.fc, self.bert.embeddings.word_embeddings ] )
+    # need to confirm name of embedding layer
+    def open_weights( self, layers=[] ):
+      for l in layers:
+        for p in l.parameters():  p.requires_grad = True
 
 # intent: calculate f1 over a dataset
 # input : iterator  = the van or test dataset
@@ -222,8 +220,11 @@ def train(trainset, validset, testset, run_tag, hp):
     test_iter  = data.DataLoader(dataset=testset , batch_size=hp.batch_size*16, shuffle=False, num_workers=0, collate_fn=trainset.pad)
     writer     = SummaryWriter( log_dir=hp.logdir )           # log with tensorboardX
     num_steps  = (len(trainset) // hp.batch_size) * hp.n_epochs
-    print("num_steps", num_steps)
     model, optimizer, scheduler, epoch = load_model( hp, num_steps )  #sn:  the body of load_model() was here.  i removed and functionized it.
+    if hp.task == 'embeddings':
+        tokenizer = AutoTokenizer.from_pretrained( hp.lm ) 
+        tokens = ['[PERSON]', '[/PERSON]', '[ID]', '[/ID]']
+        init_tokens( tokens, tokenizer, model )
 
 #   if hp.train-tokens == 1:
 #   # The pre-learned sections should have a smaller learning rate, and the last total combined layer should be larger.
@@ -262,11 +263,6 @@ def save_checkpoint( hp, model, optimizer, scheduler, epoch ):
 
 def load_model( hp, num_steps ):  # num_steps used by learning rate scheduler, not needed for evaluate()
     # initialize model, optimizer, and LR scheduler
-    # print(f"Default float dtype: {torch.get_default_dtype()}")  # Mặc định là float32
-    # print(f"TF32 enabled for matmul: {torch.backends.cuda.matmul.allow_tf32}")
-    # print(f"TF32 enabled for cuDNN: {torch.backends.cudnn.allow_tf32}")
-    # print(hp.fp16)
-    # exit()
     epoch      = 0
     device     = 'cuda' if torch.cuda.is_available() else 'cpu'
     model      = DittoModel(device=device, lm=hp.lm, alpha_aug=hp.alpha_aug)
@@ -286,20 +282,20 @@ def load_model( hp, num_steps ):  # num_steps used by learning rate scheduler, n
         optimizer.load_state_dict( checkpoint['optimizer'] )
         scheduler.load_state_dict( checkpoint['scheduler'] )  # need this line, otherwise model restart with bad f1
         epoch                    = checkpoint['epoch']
-
-    tokenizer = AutoTokenizer.from_pretrained( hp.lm ) 
-    tokens = ['[PERSON]', '[/PERSON]', '[ID]', '[/ID]']
-    # model.set_finetune_layers()  #sn
-    # init_tokens( tokens, tokenizer, model )
     return model, optimizer, scheduler, epoch
 
 def init_tokens( tokens, tokenizer, model ):      # initialize custom vocab at centroid
-    mean     = tokenizer.get_input_embeddings().weight.mean( dim=0 ) # average all embeddings
+    model.bert.resize_token_embeddings(len(tokenizer))
+    for p in model.bert.parameters():  p.requires_grad = False # turn off all gradients
+    mean     = model.bert.get_input_embeddings().weight.mean( dim=0 ) # average all embeddings
     tokenIds = tokenizer.convert_tokens_to_ids( tokens )
-    for j in tokenIds:  self.bert.embeddings.word_embeddings.state_dict()['weight'][j] = mean
+    model.open_weights( [model.bert.embeddings] ) # turn on embedding layer
+
+    for j in tokenIds:  model.bert.embeddings.word_embeddings.state_dict()['weight'][j] = mean
 #        nn.init.normal_(self.fc1.weight, std=0.02);   nn.init.normal_(self.fc1.bias, 0)  #sn #d copying masayakondo
 #        nn.init.normal_( self.fc.weight, std=0.02);   nn.init.normal_( self.fc.bias, 0)  #sn #d copying masayakondo
 
+# list in order to help determine what the threshold should be
 def rankprob( model, train_iter, threshold, outpath ):
     all_probs, all_y, yhat, yora = forwardSN( model, train_iter, threshold, label=True )
     data = []
@@ -403,4 +399,12 @@ class PositionalEncoding(nn.Module):
     def forward(self, x):
         x = x + self.pe[:x.size(0), :]
         return self.dropout(x)
+"""
+"""
+    def set_finetune_layers( self ):
+      bertLL = self.bert.transformer.layer[-1]  # bertLL = self.bert.encoder.layer[-1]  # bert last layer
+      for p in     self.parameters():  p.requires_grad = False # turn off all gradients
+      for p in self.fc1.parameters():  p.requires_grad = True  # turn on fc1
+      for p in  self.fc.parameters():  p.requires_grad = True  # turn on fc
+      for p in   bertLL.parameters():  p.requires_grad = True  # turn on near last bert layer
 """
