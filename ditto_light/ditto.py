@@ -289,7 +289,7 @@ def init_tokens( tokens, tokenizer, model ):      # initialize custom vocab at c
     for p in model.parameters():  p.requires_grad = False # turn off all gradients
     mean     = model.bert.get_input_embeddings().weight.mean( dim=0 ) # average all embeddings
     tokenIds = tokenizer.convert_tokens_to_ids( tokens )
-    model.open_weights( [model.bert.embeddings] ) # turn on embedding layer
+    model.open_weights([model.fc1, model.fc, model.bert.embeddings]) # turn on embedding layer
 
     for j in tokenIds:  model.bert.embeddings.word_embeddings.state_dict()['weight'][j] = mean
 #        nn.init.normal_(self.fc1.weight, std=0.02);   nn.init.normal_(self.fc1.bias, 0)  #sn #d copying masayakondo
