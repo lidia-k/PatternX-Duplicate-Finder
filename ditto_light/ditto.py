@@ -286,7 +286,7 @@ def load_model( hp, num_steps ):  # num_steps used by learning rate scheduler, n
 
 def init_tokens( tokens, tokenizer, model ):      # initialize custom vocab at centroid
     model.bert.resize_token_embeddings(len(tokenizer))
-    for p in model.parameters():  p.requires_grad = False # turn off all gradients
+    for p in model.bert.parameters():  p.requires_grad = False # turn off all gradients
     mean     = model.bert.get_input_embeddings().weight.mean( dim=0 ) # average all embeddings
     tokenIds = tokenizer.convert_tokens_to_ids( tokens )
     model.open_weights( [model.bert.embeddings] ) # turn on embedding layer
