@@ -24,7 +24,7 @@ print(f"file name: {synthea_bundles}")
 print(f"Number of files: {len(synthea_bundles)}")
 
 nodes = []
-edges = []
+edges = set() # set is used here to make sure edges are unique
 dates = set() # set is used here to make sure dates are unique
 for bundle_file_name in synthea_bundles:
     with open(bundle_file_name) as raw:
@@ -36,7 +36,7 @@ for bundle_file_name in synthea_bundles:
                 nodes.append(resource_to_node(entry['resource']))
                 # generated the cypher for creating the reference & date edges and capture dates
                 node_edges, node_dates = resource_to_edges(entry['resource'])
-                edges += node_edges
+                edges.update(node_edges)
                 dates.update(node_dates)
 
 # create the nodes for resources
