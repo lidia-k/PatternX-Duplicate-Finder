@@ -113,7 +113,9 @@ class VectorGraph:
             username=config.NEO4J_USER,
             password=config.NEO4J_PASSWORD,
             index_name=self.index_name,
-            retrieval_query=query
+            retrieval_query=query,
+            search_type="hybrid",
+            keyword_index_name="keyword"
         )
 
     def initialize_index(self, query=None):
@@ -128,10 +130,11 @@ class VectorGraph:
                 index_name=self.index_name,
                 node_label=self.node_label,
                 text_node_properties=['text'],
-                embedding_node_property='embedding'
+                embedding_node_property='embedding',
+                search_type="hybrid"
             )
             index = self._retrieve_existing_index(query)
         return index 
-
     def similarity_search_with_score(self, text, k=4):
         return self.index.similarity_search_with_score(query=text, k=k)
+

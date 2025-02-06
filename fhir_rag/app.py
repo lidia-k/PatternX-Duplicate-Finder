@@ -10,6 +10,7 @@ from langchain.callbacks import get_openai_callback
 from langchain.chains import RetrievalQA
 from langchain.chat_models import ChatOpenAI
 from langchain.llms import HuggingFaceHub, Ollama
+from langchain.chat_models import ChatOllama
 
 from src.dao.NEO4J_Graph import VectorGraph
 
@@ -24,7 +25,8 @@ if not api_key:
 
 
 # Initialize VectorGraph and index
-vg = VectorGraph(node_label='resource', index_name='fhir_index')
+# note: need to delete index when you want to change the model or update data in neo4j: DROP INDEX fhir_index
+vg = VectorGraph(node_label='resource', index_name='fhir_index', model='NovaSearch/stella_en_1.5B_v5') # model='NovaSearch/stella_en_1.5B_v5' / BAAI/bge-large-en-v1.5
 contextualized_query = """
 match (node)<-[]->(sc:resource)
 with node.text as self, reduce(s="", item in collect(distinct sc.text)[..5] | s + "\n\nSecondary Entry:\n" + item ) as ctxt, score, {} as metadata 
@@ -34,8 +36,10 @@ index = vg.initialize_index(contextualized_query)
 
 
 prompt = '''
-System: The context below contains entries about the patient's healthcare. 
-Please limit your answer to the information provided in the context. Do not make up facts. 
+System: The following information contains entries about the patient.
+Use the primary entry and then the secondary entries to answer the user's question.
+Each entry is its own type of data and secondary entries are supporting data for the primary one.
+Please limit your answer to the information provided in the context. Do not make up facts.
 If you don't know the answer, just say that you don't know, don't try to make up an answer.
 If you are asked about the patient's name and one the entries is of type patient, you should look for the first given name and family name and answer with: [given] [family]
 ----------------
@@ -44,9 +48,9 @@ Human: {question}
 '''
 prompt = PromptTemplate.from_template(prompt)
 
-#ollama_model = 'mistral'
-#llm = Ollama(model=ollama_model)
-#chat_model = ChatOllama(model=ollama_model)
+# ollama_model = 'mistral'
+# llm = Ollama(model=ollama_model)
+# chat_model = ChatOllama(model=ollama_model)
 
 chat_model = ChatOpenAI(model_name="gpt-3.5-turbo")
 
@@ -62,10 +66,12 @@ vector_qa = RetrievalQA.from_chain_type(
 
 
 """
+Download file: https://github.com/synthetichealth/synthea-sample-data/blob/1fe1beaa80a8fbe7b64c0c135bcbb8b1346ef38a/downloads/latest/synthea_sample_data_fhir_latest.zip
+and import file: Alfonso758_Bins636_e80d4c62-149a-a6a6-4b39-9d4aa3e07ba7.json
 Question examples:
-- How much did the cesarean section on Jan. 16, 2014 cost?
-- From which institution, does the patient receive the cesarean section on Jan. 16, 2014?
-- When did the patient get the cesarean section? 
+- What can you tell me about the medical claim created on March 06, 1977?
+- Based on this explanation of benefits, how much did it cost and what service was provided?
+- How much did the colon scan on Jan. 18, 2014 cost?
 """
 
 
