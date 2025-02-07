@@ -83,8 +83,17 @@ Run `python build_datapoints_from_db` from /GNN_on_FHIR directory.
 The Neo4j container that has all the data loaded should be running locally. 
 
 Running this script successfully creates /preprocessed_datapoints directory with the pickle files in it. 
-The code also creates `db_info.json` that maps all the node types and edge types to unique numbers as well as a list of features for each node type.  
+The code also creates `db_info.json` that maps all the node types and edge types to unique numbers as well as a list of features for each node type. 
 
+### OR Run with Docker:
+- Configure variables in `.env` file (copy from `.env.example`)
+- Run `docker-compose build` (or `docker compose` with Ubuntu)
+- Run `docker-compose up -d`: first time will show error: "ValueError: The specified vector index name does not exist. Make sure to check if you spelled it correctly" - ignore it. Go to next step.
+- Create data: run `NEO4J_URL=bolt://localhost:7687 python build_database_from_FHIR.py` from /GNN_on_FHIR directory with
+(Note: you can download the file: https://github.com/synthetichealth/synthea-sample-data/blob/1fe1beaa80a8fbe7b64c0c135bcbb8b1346ef38a/downloads/latest/synthea_sample_data_fhir_latest.zip
+and import file: `Alfonso758_Bins636_e80d4c62-149a-a6a6-4b39-9d4aa3e07ba7.json` to test)
+- Run `docker-compose down`
+- Run `docker-compose up -d` again
 ## Penumbra 
 
 ### Run Neo4J
